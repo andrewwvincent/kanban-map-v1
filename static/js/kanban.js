@@ -4,6 +4,7 @@ const API_BASE = 'http://localhost:5000';
 // Global variables
 let currentNoteTarget = null;
 let draggedCard = null;
+let originalContainer = null;
 
 function onload() {
     fetch(`${API_BASE}/api/targets`)
@@ -62,6 +63,9 @@ function onload() {
 
             // Set up event listeners
             setupEventListeners();
+            
+            // Attach drag and drop listeners
+            attachCardListeners();
         })
         .catch(error => console.error('Error:', error));
 }
@@ -104,6 +108,22 @@ function setupEventListeners() {
     });
 }
 
+function attachCardListeners() {
+    // Add drag and drop listeners to all cards
+    document.querySelectorAll('.card').forEach(card => {
+        card.setAttribute('draggable', true);
+        card.addEventListener('dragstart', drag);
+        card.addEventListener('dragend', dragend);
+    });
+
+    // Add drag and drop listeners to all columns
+    document.querySelectorAll('.cards-container').forEach(container => {
+        container.addEventListener('dragover', allowDrop);
+        container.addEventListener('drop', drop);
+        container.addEventListener('dragleave', dragleave);
+    });
+}
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', onload);
 
@@ -126,73 +146,88 @@ function stopAutoScroll() {
     }
 }
 
-function allowDrop(ev) {
-    ev.preventDefault();
+function allowDrop(event) {
+    event.preventDefault();
     
-    const column = ev.target.closest('.column');
-    if (!column) return;
-    
-    const container = column.querySelector('.cards-container');
-    const rect = container.getBoundingClientRect();
-    const threshold = 50; // pixels from top/bottom to trigger scroll
-    
-    if (ev.clientY < rect.top + threshold) {
-        startAutoScroll('up', container);
-    } else if (ev.clientY > rect.bottom - threshold) {
-        startAutoScroll('down', container);
-    } else {
-        stopAutoScroll();
-    }
-    
-    // Handle drop target highlighting
-    const dropTarget = ev.target.closest('.card-drop-target');
-    if (dropTarget) {
-        // Remove active class from all drop targets
-        document.querySelectorAll('.card-drop-target').forEach(target => {
-            target.classList.remove('active');
+    // Add drag-over effect to the container
+    const container = event.target.closest('.cards-container');
+    if (container) {
+        // Remove from all containers first
+        document.querySelectorAll('.cards-container').forEach(c => {
+            c.classList.remove('drag-over');
         });
-        // Add active class to current drop target
-        dropTarget.classList.add('active');
+        // Add to current container
+        container.classList.add('drag-over');
+    }
+}
+
+function dragleave(event) {
+    const container = event.target.closest('.cards-container');
+    if (container) {
+        container.classList.remove('drag-over');
     }
 }
 
 function drag(event) {
-    event.dataTransfer.setData('text/plain', event.target.id);
+    draggedCard = event.target;
+    originalContainer = draggedCard.parentNode;
+    draggedCard.classList.add('dragging');
+    
+    // Set opacity on other cards
+    document.querySelectorAll('.card').forEach(card => {
+        if (card !== draggedCard) {
+            card.style.opacity = '0.6';
+        }
+    });
 }
 
 function dragend(event) {
-    stopAutoScroll();
-    document.querySelectorAll('.card-drop-target').forEach(target => {
-        target.classList.remove('active');
+    if (draggedCard) {
+        draggedCard.classList.remove('dragging');
+    }
+    
+    // Reset opacity on all cards
+    document.querySelectorAll('.card').forEach(card => {
+        card.style.opacity = '';
+    });
+    
+    // Remove drag-over effect from all containers
+    document.querySelectorAll('.cards-container').forEach(container => {
+        container.classList.remove('drag-over');
     });
 }
 
 function drop(event) {
     event.preventDefault();
-    stopAutoScroll();
+    event.stopPropagation();
     
-    const data = event.dataTransfer.getData('text/plain');
-    const card = document.getElementById(data);
-    const column = event.target.closest('.column');
-    
-    if (!card || !column) {
-        console.error('Card or column not found:', { cardId: data, card, column });
+    if (!draggedCard) {
+        console.error('No dragged card found');
         return;
     }
+
+    const container = event.target.closest('.cards-container');
+    if (!container) {
+        console.error('No valid drop container found');
+        return;
+    }
+
+    // Get the new status from the column
+    const newStatus = container.closest('.column').id.replace(/-/g, ' ');
     
-    const oldStatus = card.parentElement.id;
-    const newStatus = column.id;
-    const target = JSON.parse(card.dataset.target);
+    // Get the target data
+    const targetData = JSON.parse(draggedCard.dataset.target);
+    const organization = targetData.organization;
     
-    // Update the database
+    // Update the status on the server
     fetch(`${API_BASE}/api/update_status`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            organization: target.organization,
-            status: newStatus.replace(/-/g, ' ')
+            organization: organization,
+            status: newStatus
         })
     })
     .then(response => {
@@ -203,48 +238,50 @@ function drop(event) {
     })
     .then(data => {
         if (data.error) {
-            console.error('Error updating status:', data.error);
-            return;
+            throw new Error(data.error);
         }
-        
-        // Move the card to the correct position
-        const container = column.querySelector('.cards-container');
-        const dropTarget = event.target.closest('.card-drop-target');
-        
-        if (dropTarget) {
-            // If dropped on a drop target, insert before the next card
-            const nextCard = dropTarget.nextElementSibling;
-            if (nextCard) {
-                container.insertBefore(card, nextCard);
-            } else {
-                container.appendChild(card);
-            }
-        } else if (event.target.classList.contains('card')) {
-            // If dropped on another card, insert before that card
-            container.insertBefore(card, event.target);
+
+        // Remove card from old container
+        if (draggedCard.parentNode) {
+            draggedCard.parentNode.removeChild(draggedCard);
+        }
+
+        // Insert the card at the top of the new container
+        const firstCard = container.firstChild;
+        if (firstCard) {
+            container.insertBefore(draggedCard, firstCard);
         } else {
-            // If dropped directly in the container or elsewhere, append to the end
-            container.appendChild(card);
+            container.appendChild(draggedCard);
         }
         
+        // Update target data with new status
+        targetData.status = newStatus;
+        draggedCard.dataset.target = JSON.stringify(targetData);
+        
+        // Update column counts
         updateColumnCounts();
         
-        // Update the target object with new status
-        target.status = newStatus.replace(/-/g, ' ');
-        card.dataset.target = JSON.stringify(target);
+        // Log the activity
+        loadActivityLog();
         
-        // Notify parent window to update the map pin
+        // Notify the map to update the marker
         window.parent.postMessage({
             type: 'updateMapPin',
-            target: target
+            target: targetData
         }, '*');
-        
-        // Refresh activity log
-        loadActivityLog();
+
+        // Remove dragging class
+        draggedCard.classList.remove('dragging');
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to update card status. Please try again.');
+        console.error('Error updating status:', error);
+        // Return card to original position if there was an error
+        if (originalContainer && draggedCard) {
+            originalContainer.appendChild(draggedCard);
+        }
+        if (draggedCard) {
+            draggedCard.classList.remove('dragging');
+        }
     });
 }
 
@@ -283,15 +320,6 @@ function toggleActivityLog() {
             loadActivityLog();
         }
     }
-}
-
-function attachCardListeners() {
-    document.querySelectorAll('.card').forEach(card => {
-        card.addEventListener('click', toggleCard);
-        card.setAttribute('draggable', true);
-        card.addEventListener('dragstart', drag);
-        card.addEventListener('dragend', dragend);
-    });
 }
 
 function toggleCard(event) {
@@ -674,10 +702,16 @@ function deleteNote(noteId) {
 }
 
 // Close notes popup when clicking outside
-document.querySelector('.notes-overlay').addEventListener('click', closeNotes);
+const notesOverlay = document.querySelector('.notes-overlay');
+if (notesOverlay) {
+    notesOverlay.addEventListener('click', closeNotes);
+}
 
 // Prevent closing when clicking inside the popup
-document.querySelector('.notes-popup').addEventListener('click', e => e.stopPropagation());
+const notesPopup = document.querySelector('.notes-popup');
+if (notesPopup) {
+    notesPopup.addEventListener('click', e => e.stopPropagation());
+}
 
 function updateColumnCounts() {
     document.querySelectorAll('.column').forEach(column => {

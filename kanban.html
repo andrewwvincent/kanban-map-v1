@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Target Management Board</title>
     <link rel="stylesheet" href="/static/styles/kanban.css">
+    <style>
+        .card {
+            cursor: grab;
+        }
+        
+        .card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        
+        .cards-container {
+            min-height: 100px;
+        }
+    </style>
 </head>
 <body>
     <div class="header">
@@ -17,7 +31,7 @@
 
     <div class="board-container">
         <div class="board">
-            <div class="column" id="not-contacted" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="not-contacted">
                 <div class="column-header">
                     <span>Not Contacted</span>
                     <div style="display: flex; align-items: center;">
@@ -35,10 +49,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
 
-            <div class="column" id="initial-contact" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="initial-contact">
                 <div class="column-header">
                     <span>Initial Contact</span>
                     <div style="display: flex; align-items: center;">
@@ -56,10 +70,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
 
-            <div class="column" id="in-discussion" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="in-discussion">
                 <div class="column-header">
                     <span>In Discussion</span>
                     <div style="display: flex; align-items: center;">
@@ -77,10 +91,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
 
-            <div class="column" id="partnership-agreed" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="partnership-agreed">
                 <div class="column-header">
                     <span>Partnership Agreed</span>
                     <div style="display: flex; align-items: center;">
@@ -98,10 +112,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
 
-            <div class="column" id="partnership-active" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="partnership-active">
                 <div class="column-header">
                     <span>Partnership Active</span>
                     <div style="display: flex; align-items: center;">
@@ -119,10 +133,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
 
-            <div class="column" id="not-interested" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <div class="column" id="not-interested">
                 <div class="column-header">
                     <span>Not Interested</span>
                     <div style="display: flex; align-items: center;">
@@ -140,7 +154,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="cards-container"></div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
             </div>
         </div>
     </div>

@@ -142,31 +142,19 @@
         <div id="map"></div>
         <div class="filter-control">
             <h4>Filters</h4>
-            <div>
-                <div class="parent-checkbox">
-                    <input type="checkbox" id="all_grades">
-                    <label for="all_grades">ZIP Grades</label>
-                </div>
-                <div class="child-checkboxes" id="gradeFilters"></div>
-            </div>
-            <div>
-                <div class="parent-checkbox">
-                    <input type="checkbox" id="all_clusters">
-                    <label for="all_clusters">Cluster Types</label>
-                </div>
-                <div class="child-checkboxes" id="clusterFilters"></div>
-            </div>
-            <div>
-                <div class="parent-checkbox">
-                    <input type="checkbox" id="all_targets">
-                    <label for="all_targets">All Targets</label>
-                </div>
-                <div class="child-checkboxes">
-                    <div class="parent-checkbox">
-                        <input type="checkbox" id="athletic_centers">
-                        <label for="athletic_centers">Athletic Centers</label>
-                    </div>
-                    <div class="child-checkboxes" id="statusFilters"></div>
+            <div id="statusFilters">
+                <h5>Athletic Centers</h5>
+                <label>
+                    <input type="checkbox" id="athletic_centers" checked>
+                    All Athletic Centers
+                </label>
+                <div class="sub-filters">
+                    <label><input type="checkbox" class="status-filter" data-status="not contacted" checked> Not Contacted</label>
+                    <label><input type="checkbox" class="status-filter" data-status="initial contact" checked> Initial Contact</label>
+                    <label><input type="checkbox" class="status-filter" data-status="in discussion" checked> In Discussion</label>
+                    <label><input type="checkbox" class="status-filter" data-status="partnership agreed" checked> Partnership Agreed</label>
+                    <label><input type="checkbox" class="status-filter" data-status="partnership active" checked> Partnership Active</label>
+                    <label><input type="checkbox" class="status-filter" data-status="not interested" checked> Not Interested</label>
                 </div>
             </div>
         </div>
@@ -188,32 +176,7 @@
             minZoom: 3
         }).addTo(map);
 
-        // Administrative boundaries layer
-        L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png', {
-            opacity: 0.3
-        }).addTo(map);
-
         // Define colors
-        const gradeColors = {
-            'A': '#2ECC40',  // Green
-            'B': '#0074D9',  // Blue
-            'C': '#FFDC00',  // Yellow
-            'D': '#FF851B',  // Orange
-            'F': '#FF4136',  // Red
-            'Ungraded': '#AAAAAA'  // Gray
-        };
-
-        const clusterColors = {
-            'A_5mi': '#2ECC40',    // Green
-            'A_10mi': '#3D9970',   // Dark Green
-            'AB_5mi': '#0074D9',   // Blue
-            'AB_10mi': '#001f3f',  // Dark Blue
-            'ABC_5mi': '#FFDC00',  // Yellow
-            'ABC_10mi': '#FF851B', // Orange
-            'BC_5mi': '#B10DC9',   // Purple
-            'BC_10mi': '#85144b'   // Maroon
-        };
-
         const statusColors = {
             'not contacted': '#808080',      // Gray
             'initial contact': '#FFA500',    // Orange
@@ -232,7 +195,6 @@
         }
 
         // Create layer groups
-        let zipMarkers = L.layerGroup();
         let targetMarkers = L.markerClusterGroup({
             maxClusterRadius: 50,
             spiderfyOnMaxZoom: true,
@@ -240,6 +202,7 @@
             zoomToBoundsOnClick: true,
             iconCreateFunction: function(cluster) {
                 const childCount = cluster.getChildCount();
+                
                 let c = ' marker-cluster-';
                 if (childCount < 10) {
                     c += 'small';
@@ -249,9 +212,10 @@
                     c += 'large';
                 }
 
+                // Get dominant status color
                 const markers = cluster.getAllChildMarkers();
                 const statusCounts = markers.reduce((counts, marker) => {
-                    const status = marker.options.status;
+                    const status = marker.targetData.status;
                     counts[status] = (counts[status] || 0) + 1;
                     return counts;
                 }, {});
@@ -259,7 +223,7 @@
                 const dominantStatus = Object.entries(statusCounts)
                     .sort((a, b) => b[1] - a[1])[0][0];
 
-                const color = statusColors[dominantStatus];
+                const color = statusColors[dominantStatus] || '#666';
 
                 return new L.DivIcon({
                     html: '<div style="background-color: ' + color + '"><span>' + childCount + '</span></div>',
@@ -268,349 +232,136 @@
                 });
             }
         });
-        let clusterLayers = {};
 
-        // Function to create convex hull
-        function createConvexHull(points) {
-            if (points.length < 3) return points;
-            
-            // Graham scan algorithm
-            function cross(o, a, b) {
-                return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-            }
-            
-            points.sort((a, b) => {
-                return a[0] === b[0] ? a[1] - b[1] : a[0] - b[0];
-            });
-            
-            let lower = [];
-            for (let i = 0; i < points.length; i++) {
-                while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], points[i]) <= 0) {
-                    lower.pop();
-                }
-                lower.push(points[i]);
-            }
-            
-            let upper = [];
-            for (let i = points.length - 1; i >= 0; i--) {
-                while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], points[i]) <= 0) {
-                    upper.pop();
-                }
-                upper.push(points[i]);
-            }
-            
-            upper.pop();
-            lower.pop();
-            return lower.concat(upper);
-        }
-
-        // Function to update parent checkbox state
-        function updateParentCheckbox(parentId, childrenSelector) {
-            const parent = document.getElementById(parentId);
-            const children = document.querySelectorAll(childrenSelector);
-            const checkedCount = Array.from(children).filter(child => child.checked).length;
-            
-            if (checkedCount === 0) {
-                parent.checked = false;
-                parent.indeterminate = false;
-            } else if (checkedCount === children.length) {
-                parent.checked = true;
-                parent.indeterminate = false;
-            } else {
-                parent.checked = false;
-                parent.indeterminate = true;
-            }
-        }
-
-        // Function to toggle all children based on parent state
-        function toggleChildren(parentId, childrenSelector) {
-            const parent = document.getElementById(parentId);
-            const children = document.querySelectorAll(childrenSelector);
-            children.forEach(child => {
-                child.checked = parent.checked;
-            });
-        }
-
-        // Update marker sizes when zoom changes
-        map.on('zoomend', function() {
-            const currentZoom = map.getZoom();
-            const newSize = getMarkerSize(currentZoom);
-            
-            targetMarkers.eachLayer(function(marker) {
-                const icon = marker.getIcon();
-                const faSize = Math.floor(newSize * 1.5); // Make Font Awesome icons larger
-                icon.options.html = `<i class="fas fa-map-marker-alt map-marker" style="color: ${marker.options.status ? statusColors[marker.options.status] : '#000'}; font-size: ${faSize}px;"></i>`;
-                icon.options.iconSize = [newSize, newSize];
-                icon.options.iconAnchor = [newSize/2, faSize];
-                marker.setIcon(icon);
-            });
-        });
-
-        // Load data from our API
+        // Fetch data
         Promise.all([
-            fetch('/api/targets').then(resp => resp.json()),
-            fetch('/api/zips').then(resp => resp.json())
-        ]).then(([targetsData, zips]) => {
+            fetch('/api/targets').then(response => response.json())
+        ]).then(([targetsData]) => {
             // Store targets globally
             targets = targetsData;
             console.log("Loaded targets:", targets.length);
             console.log("Sample target:", targets[0]);
 
-            // Create filter controls
-            const gradeFilters = document.getElementById('gradeFilters');
-            Object.entries(gradeColors).forEach(([grade, color]) => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <input type="checkbox" id="grade_${grade}">
-                    <label for="grade_${grade}">
-                        <i class="fas fa-circle" style="color: ${color}"></i>
-                        Grade ${grade}
-                    </label>
-                `;
-                div.querySelector('input').addEventListener('change', () => {
-                    updateParentCheckbox('all_grades', '#gradeFilters input[type="checkbox"]');
-                    updateFilters();
-                });
-                gradeFilters.appendChild(div);
+            // Process targets
+            targets.forEach(target => {
+                if (target.latitude && target.longitude) {
+                    const status = target.status;
+                    const size = getMarkerSize(map.getZoom());
+                    const faSize = Math.floor(size * 1.5);
+
+                    const marker = L.marker([target.latitude, target.longitude], {
+                        icon: L.divIcon({
+                            html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
+                            className: 'custom-marker',
+                            iconSize: [size, size],
+                            iconAnchor: [size/2, size],
+                            popupAnchor: [0, -size]
+                        })
+                    });
+
+                    // Add popup
+                    marker.bindPopup(`
+                        <strong>${target.organization}</strong><br>
+                        Status: ${status}<br>
+                        ${target.address || ''}<br>
+                        ${target.notes ? '<br>Notes: ' + target.notes : ''}
+                    `);
+
+                    // Store target data with marker
+                    marker.targetData = target;
+                    targetMarkers.addLayer(marker);
+                }
             });
 
-            // Add parent grade checkbox handler
-            document.getElementById('all_grades').addEventListener('change', function() {
-                toggleChildren('all_grades', '#gradeFilters input[type="checkbox"]');
-                updateFilters();
-            });
+            // Add markers to map
+            map.addLayer(targetMarkers);
 
-            const clusterFilters = document.getElementById('clusterFilters');
-            Object.entries(clusterColors).forEach(([type, color]) => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <input type="checkbox" id="cluster_${type}" ${type === 'A_10mi' ? 'checked' : ''}>
-                    <label for="cluster_${type}">
-                        <i class="fas fa-square" style="color: ${color}"></i>
-                        ${type}
-                    </label>
-                `;
-                div.querySelector('input').addEventListener('change', () => {
-                    updateParentCheckbox('all_clusters', '#clusterFilters input[type="checkbox"]');
-                    updateFilters();
-                });
-                clusterFilters.appendChild(div);
-            });
+            // Function to update parent checkbox state
+            function updateParentCheckbox(parentId, childrenSelector) {
+                const parent = document.getElementById(parentId);
+                if (!parent) return;
 
-            // Add parent cluster checkbox handler
-            document.getElementById('all_clusters').addEventListener('change', function() {
-                toggleChildren('all_clusters', '#clusterFilters input[type="checkbox"]');
-                updateFilters();
-            });
-
-            const statusFilters = document.getElementById('statusFilters');
-            Object.entries(statusColors).forEach(([status, color]) => {
-                const div = document.createElement('div');
-                const statusId = status.replace(/ /g, '_');
-                div.innerHTML = `
-                    <input type="checkbox" id="status_${statusId}" checked>
-                    <label for="status_${statusId}">
-                        <i class="fas fa-map-marker-alt" style="color: ${color}"></i>
-                        ${status.replace(/\b\w/g, l => l.toUpperCase())}
-                    </label>
-                `;
-                div.querySelector('input').addEventListener('change', () => {
-                    updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
-                    updateParentCheckbox('all_targets', '#athletic_centers');
-                    updateFilters();
-                });
-                statusFilters.appendChild(div);
-            });
-
-            // Add parent target checkbox handlers
-            document.getElementById('athletic_centers').addEventListener('change', function() {
-                toggleChildren('athletic_centers', '#statusFilters input[type="checkbox"]');
-                updateParentCheckbox('all_targets', '#athletic_centers');
-                updateFilters();
-            });
-
-            document.getElementById('all_targets').addEventListener('change', function() {
-                this.indeterminate = false;
-                const athleticCenters = document.getElementById('athletic_centers');
-                athleticCenters.checked = this.checked;
-                athleticCenters.indeterminate = false;
-                toggleChildren('athletic_centers', '#statusFilters input[type="checkbox"]');
-                updateFilters();
-            });
-
-            // Set initial checkbox states
-            document.getElementById('all_targets').checked = true;
-            document.getElementById('athletic_centers').checked = true;
-            document.getElementById('all_grades').checked = false;
-            document.getElementById('all_clusters').checked = false;
-
-            // Function to update visible layers based on filters
-            function updateFilters() {
-                console.log("Updating filters...");
-                console.log("Targets available:", targets.length);
+                const children = document.querySelectorAll(childrenSelector);
+                const checkedCount = Array.from(children).filter(child => child.checked).length;
                 
-                // Clear existing markers
-                zipMarkers.clearLayers();
-                targetMarkers.clearLayers();
-                map.removeLayer(targetMarkers);
-                map.removeLayer(zipMarkers);
-
-                // Handle ZIP markers
-                if (document.getElementById('all_grades').checked) {
-                    const selectedGrades = Object.keys(gradeColors).filter(grade => 
-                        document.getElementById(`grade_${grade}`).checked
-                    );
-                    console.log("Selected grades:", selectedGrades);
-
-                    zips.forEach(zip => {
-                        if (selectedGrades.includes(zip.grade)) {
-                            const marker = L.circleMarker([zip.latitude, zip.longitude], {
-                                radius: 3,
-                                color: 'black',
-                                weight: 1,
-                                fill: true,
-                                fillColor: gradeColors[zip.grade],
-                                fillOpacity: 0.7,
-                                opacity: 1
-                            });
-
-                            const popupContent = `
-                                <b>ZIP: ${zip.zip_code}</b><br>
-                                Grade: ${zip.grade}<br>
-                                Population: ${zip.total_pop.toLocaleString()}<br>
-                                Income: $${zip.median_income.toLocaleString()}<br>
-                                Households: ${zip.households.toLocaleString()}
-                            `;
-                            
-                            marker.bindPopup(popupContent);
-                            zipMarkers.addLayer(marker);
-                        }
-                    });
-
-                    if (zipMarkers.getLayers().length > 0) {
-                        zipMarkers.addTo(map);
-                    }
-                }
-
-                // Handle target markers
-                const allTargetsChecked = document.getElementById('all_targets').checked;
-                const athleticCentersChecked = document.getElementById('athletic_centers').checked;
-
-                // Get selected statuses, using underscores in IDs
-                const selectedStatuses = Object.keys(statusColors).filter(status => {
-                    const statusId = `status_${status.replace(/ /g, '_')}`;
-                    return document.getElementById(statusId).checked;
-                });
-                console.log("Selected statuses:", selectedStatuses);
-
-                // Only proceed if either all targets or specific statuses are selected
-                if (allTargetsChecked || selectedStatuses.length > 0) {
-                    targets.forEach(target => {
-                        if (!target.latitude || !target.longitude) {
-                            console.log("Target missing coordinates:", target);
-                            return;
-                        }
-                        
-                        const status = target.status || 'not contacted';
-                        // Show the marker if either:
-                        // 1. All targets are checked, or
-                        // 2. The specific status is checked
-                        if (!selectedStatuses.includes(status)) {
-                            console.log("Target status not selected:", status);
-                            return;
-                        }
-
-                        console.log("Adding target:", target.organization, target.latitude, target.longitude, status);
-
-                        const currentZoom = map.getZoom();
-                        const size = getMarkerSize(currentZoom);
-                        const faSize = Math.floor(size * 1.5);
-                        
-                        const marker = L.marker([target.latitude, target.longitude], {
-                            icon: L.divIcon({
-                                className: 'custom-div-icon',
-                                html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
-                                iconSize: [size, size],
-                                iconAnchor: [size/2, faSize]
-                            }),
-                            status: status
-                        });
-
-                        const popupContent = `
-                            <b>${target.organization}</b><br>
-                            ${target.address}<br>
-                            Phone: ${target.phone || 'N/A'}<br>
-                            Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
-                            Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
-                            Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
-                        `;
-                        
-                        marker.bindPopup(popupContent);
-                        targetMarkers.addLayer(marker);
-                    });
-
-                    console.log("Target markers added:", targetMarkers.getLayers().length);
-                    if (targetMarkers.getLayers().length > 0) {
-                        targetMarkers.addTo(map);
-                    }
-                }
-
-                // Handle cluster layers separately
-                const selectedClusters = Object.keys(clusterColors).filter(type => 
-                    document.getElementById(`cluster_${type}`).checked
-                );
-                console.log("Selected clusters:", selectedClusters);
-
-                // Remove existing cluster layers
-                Object.values(clusterLayers).forEach(layer => layer.remove());
-                clusterLayers = {};
-
-                // Add new cluster layers
-                if (selectedClusters.length > 0) {
-                    selectedClusters.forEach(clusterType => {
-                        fetch(`/api/clusters/${clusterType}`).then(resp => resp.json())
-                            .then(clusters => {
-                                const layer = L.layerGroup();
-                                Object.entries(clusters).forEach(([clusterId, clusterZips]) => {
-                                    const coords = clusterZips.map(zip => [zip.lat, zip.lng]);
-                                    if (coords.length >= 3) {
-                                        const hull = createConvexHull(coords);
-                                        const totalPop = clusterZips.reduce((sum, zip) => sum + zip.total_pop, 0);
-                                        const avgIncome = clusterZips.reduce((sum, zip) => sum + zip.median_income, 0) / clusterZips.length;
-
-                                        const polygon = L.polygon(hull, {
-                                            color: clusterColors[clusterType],
-                                            fillOpacity: 0.2,
-                                            weight: 2
-                                        }).bindPopup(`
-                                            <b>Cluster ${clusterId}</b><br>
-                                            ZIPs: ${clusterZips.length}<br>
-                                            Total Population: ${totalPop.toLocaleString()}<br>
-                                            Average Income: $${Math.round(avgIncome).toLocaleString()}
-                                        `);
-                                        
-                                        layer.addLayer(polygon);
-                                    }
-                                });
-                                
-                                clusterLayers[clusterType] = layer;
-                                if (document.getElementById(`cluster_${clusterType}`).checked) {
-                                    layer.addTo(map);
-                                }
-                            });
-                    });
+                if (checkedCount === 0) {
+                    parent.checked = false;
+                    parent.indeterminate = false;
+                } else if (checkedCount === children.length) {
+                    parent.checked = true;
+                    parent.indeterminate = false;
+                } else {
+                    parent.checked = false;
+                    parent.indeterminate = true;
                 }
             }
 
-            // Initial parent checkbox states
-            updateParentCheckbox('all_grades', '#gradeFilters input[type="checkbox"]');
-            updateParentCheckbox('all_clusters', '#clusterFilters input[type="checkbox"]');
-            updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
-            updateParentCheckbox('all_targets', '#athletic_centers');
+            // Function to toggle all children based on parent state
+            function toggleChildren(parentId, childrenSelector) {
+                const parent = document.getElementById(parentId);
+                if (!parent) return;
 
-            // Initial update
-            updateFilters();
+                const children = document.querySelectorAll(childrenSelector);
+                children.forEach(child => {
+                    child.checked = parent.checked;
+                });
+            }
+
+            // Initial filter state
+            updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
+            
+            // Set up filter event listeners
+            document.querySelectorAll('#statusFilters input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    if (this.id === 'athletic_centers') {
+                        toggleChildren('athletic_centers', '#statusFilters input.status-filter');
+                    } else {
+                        updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
+                    }
+                    updateFilters();
+                });
+            });
         });
+
+        function updateFilters() {
+            targetMarkers.clearLayers();
+
+            targets.forEach(target => {
+                if (target.latitude && target.longitude) {
+                    const status = target.status;
+                    const statusCheckbox = document.querySelector(`input.status-filter[data-status="${status}"]`);
+                    
+                    if (statusCheckbox && statusCheckbox.checked) {
+                        const size = getMarkerSize(map.getZoom());
+                        const faSize = Math.floor(size * 1.5);
+
+                        const marker = L.marker([target.latitude, target.longitude], {
+                            icon: L.divIcon({
+                                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
+                                className: 'custom-marker',
+                                iconSize: [size, size],
+                                iconAnchor: [size/2, size],
+                                popupAnchor: [0, -size]
+                            })
+                        });
+
+                        marker.bindPopup(`
+                            <strong>${target.organization}</strong><br>
+                            Status: ${status}<br>
+                            ${target.address || ''}<br>
+                            ${target.notes ? '<br>Notes: ' + target.notes : ''}
+                        `);
+
+                        marker.targetData = target;
+                        targetMarkers.addLayer(marker);
+                    }
+                }
+            });
+        }
+
+        function getColorForStatus(status) {
+            return statusColors[status] || '#000';
+        }
 
         // Add resize handle functionality
         const mapContainer = document.getElementById('map-container');
@@ -663,7 +414,7 @@
                     if (popup) {
                         const content = popup.getContent();
                         // Check if this is the marker for our target
-                        if (content.includes(`<b>${target.organization}</b>`)) {
+                        if (content.includes(`<strong>${target.organization}</strong>`)) {
                             markerFound = true;
                             // Update marker color based on new status
                             const status = target.status;
@@ -672,22 +423,21 @@
                             const faSize = Math.floor(size * 1.5);
                             
                             const newIcon = L.divIcon({
-                                className: 'custom-div-icon',
-                                html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
+                                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
+                                className: 'custom-marker',
                                 iconSize: [size, size],
-                                iconAnchor: [size/2, faSize]
+                                iconAnchor: [size/2, size],
+                                popupAnchor: [0, -size]
                             });
                             
                             marker.setIcon(newIcon);
                             
                             // Update popup content
                             const newPopupContent = `
-                                <b>${target.organization}</b><br>
-                                ${target.address}<br>
-                                Phone: ${target.phone || 'N/A'}<br>
-                                Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
-                                Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
-                                Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
+                                <strong>${target.organization}</strong><br>
+                                Status: ${status}<br>
+                                ${target.address || ''}<br>
+                                ${target.notes ? '<br>Notes: ' + target.notes : ''}
                             `;
                             marker.setPopupContent(newPopupContent);
                             
@@ -695,10 +445,7 @@
                             marker.options.status = status;
                             
                             // If the marker's status is not in the selected statuses, remove it
-                            const selectedStatuses = Object.keys(statusColors).filter(s => {
-                                const statusId = `status_${s.replace(/ /g, '_')}`;
-                                return document.getElementById(statusId).checked;
-                            });
+                            const selectedStatuses = Array.from(document.querySelectorAll('#statusFilters input.status-filter')).filter(checkbox => checkbox.checked).map(checkbox => checkbox.getAttribute('data-status'));
                             
                             if (!selectedStatuses.includes(status)) {
                                 targetMarkers.removeLayer(marker);
@@ -716,30 +463,28 @@
                     
                     const marker = L.marker([target.latitude, target.longitude], {
                         icon: L.divIcon({
-                            className: 'custom-div-icon',
-                            html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
+                            html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
+                            className: 'custom-marker',
                             iconSize: [size, size],
-                            iconAnchor: [size/2, faSize]
-                        }),
-                        status: status
+                            iconAnchor: [size/2, size],
+                            popupAnchor: [0, -size]
+                        })
                     });
 
                     const popupContent = `
-                        <b>${target.organization}</b><br>
-                        ${target.address}<br>
-                        Phone: ${target.phone || 'N/A'}<br>
-                        Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
-                        Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
-                        Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
+                        <strong>${target.organization}</strong><br>
+                        Status: ${status}<br>
+                        ${target.address || ''}<br>
+                        ${target.notes ? '<br>Notes: ' + target.notes : ''}
                     `;
                     
                     marker.bindPopup(popupContent);
                     
+                    // Store target data with marker
+                    marker.targetData = target;
+                    
                     // Only add the marker if its status is currently selected
-                    const selectedStatuses = Object.keys(statusColors).filter(s => {
-                        const statusId = `status_${s.replace(/ /g, '_')}`;
-                        return document.getElementById(statusId).checked;
-                    });
+                    const selectedStatuses = Array.from(document.querySelectorAll('#statusFilters input.status-filter')).filter(checkbox => checkbox.checked).map(checkbox => checkbox.getAttribute('data-status'));
                     
                     if (selectedStatuses.includes(status)) {
                         targetMarkers.addLayer(marker);
