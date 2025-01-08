@@ -21,6 +21,10 @@ def index_db():
 def kanban():
     return send_from_directory('.', 'kanban.html')
 
+@app.route('/dashboard')
+def dashboard():
+    return send_from_directory('.', 'dashboard.html')
+
 @app.route('/api/targets')
 def get_targets():
     conn = get_db_connection()
@@ -273,11 +277,100 @@ def get_activity_log():
     finally:
         conn.close()
 
+@app.route('/api/dashboard/summary')
+def get_dashboard_summary():
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Get status counts
+        cursor.execute('''
+            SELECT 
+                COALESCE(status, 'not-contacted') as status,
+                COUNT(*) as count,
+                SUM(population) as total_population,
+                AVG(median_income) as avg_income
+            FROM targets
+            GROUP BY COALESCE(status, 'not-contacted')
+        ''')
+        
+        status_summary = {}
+        for row in cursor.fetchall():
+            status_summary[row[0]] = {
+                'count': row[1],
+                'total_population': row[2],
+                'avg_income': row[3]
+            }
+            
+        # Get grade distribution
+        cursor.execute('''
+            SELECT 
+                z.grade,
+                COUNT(*) as count
+            FROM targets t
+            LEFT JOIN zip_data z ON t.region = z.zip_code
+            GROUP BY z.grade
+        ''')
+        
+        grade_summary = {}
+        for row in cursor.fetchall():
+            if row[0]:  # Only include non-null grades
+                grade_summary[row[0]] = row[1]
+        
+        return jsonify({
+            'status_summary': status_summary,
+            'grade_summary': grade_summary
+        })
+    except Exception as e:
+        print(f"Error getting dashboard summary: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/dashboard/status/<status>')
+def get_status_details(status):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT 
+                t.organization,
+                t.address,
+                t.population,
+                t.median_income,
+                t.latitude,
+                t.longitude,
+                z.grade
+            FROM targets t
+            LEFT JOIN zip_data z ON t.region = z.zip_code
+            WHERE COALESCE(t.status, 'not-contacted') = ?
+        ''', (status,))
+        
+        targets = []
+        for row in cursor.fetchall():
+            targets.append({
+                'organization': row[0],
+                'address': row[1],
+                'population': row[2],
+                'median_income': row[3],
+                'latitude': row[4],
+                'longitude': row[5],
+                'grade': row[6]
+            })
+        
+        return jsonify(targets)
+    except Exception as e:
+        print(f"Error getting status details: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     print("Starting test server...")
     print(f"Current directory: {os.getcwd()}")
     print(f"index_db.html exists: {os.path.exists('index_db.html')}")
     print(f"kanban.html exists: {os.path.exists('kanban.html')}")
+    print(f"dashboard.html exists: {os.path.exists('dashboard.html')}")
     
     # Test database connection
     try:
