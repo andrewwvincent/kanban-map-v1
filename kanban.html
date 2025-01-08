@@ -37,14 +37,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'not-contacted')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('not-contacted')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('not-contacted', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('not-contacted', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('not-contacted', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('not-contacted', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -58,14 +55,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'initial-contact')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('initial-contact')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('initial-contact', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('initial-contact', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('initial-contact', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('initial-contact', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -79,14 +73,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'in-discussion')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('in-discussion')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('in-discussion', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('in-discussion', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('in-discussion', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('in-discussion', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -100,14 +91,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'partnership-agreed')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('partnership-agreed')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-agreed', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-agreed', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-agreed', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -121,14 +109,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'partnership-active')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('partnership-active')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('partnership-active', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-active', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-active', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('partnership-active', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -142,14 +127,11 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'not-interested')">⋮</button>
+                            <button class="sort-button" onclick="toggleSort('not-interested')">⋮</button>
                             <div class="sort-menu">
-                                <div class="sort-option" onclick="handleSort('not-interested', 'organization', 'asc')">Sort by Name (A-Z)</div>
-                                <div class="sort-option" onclick="handleSort('not-interested', 'organization', 'desc')">Sort by Name (Z-A)</div>
-                                <div class="sort-option" onclick="handleSort('not-interested', 'population', 'desc')">Sort by Population ↓</div>
-                                <div class="sort-option" onclick="handleSort('not-interested', 'population', 'asc')">Sort by Population ↑</div>
-                                <div class="sort-option" onclick="handleSort('not-interested', 'income', 'desc')">Sort by Income ↓</div>
-                                <div class="sort-option" onclick="handleSort('not-interested', 'income', 'asc')">Sort by Income ↑</div>
+                                <div class="sort-option" onclick="sortColumn('not-interested', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('not-interested', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('not-interested', 'median_income')">Sort by Income</div>
                             </div>
                         </div>
                     </div>
@@ -165,17 +147,16 @@
         <div class="activity-log-content"></div>
     </div>
 
-    <!-- Notes Popup -->
-    <div id="notes-popup" class="notes-popup" style="display: none;">
+    <div class="notes-container" style="display: none;">
         <div class="notes-header">
-            <h2 id="notes-title">Notes</h2>
+            <h2>Notes</h2>
             <button class="close-notes" onclick="closeNotes()">×</button>
         </div>
         <div class="notes-content">
             <div class="notes-list"></div>
-            <div class="add-note">
-                <textarea id="newNoteText" placeholder="Add a new note..."></textarea>
-                <button onclick="addNote()">Add Note</button>
+            <div class="notes-input-container">
+                <input type="text" class="note-input" placeholder="Type a note and press Enter...">
+                <button class="add-note-btn">Add Note</button>
             </div>
         </div>
     </div>

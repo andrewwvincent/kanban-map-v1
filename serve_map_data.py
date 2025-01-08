@@ -213,7 +213,15 @@ def add_note():
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
-        # Use strftime to store timestamp in ISO format
+        
+        # First check if the target exists in the notes table
+        cursor.execute('SELECT 1 FROM notes WHERE target_id = ? LIMIT 1', (data['target_id'],))
+        target_exists = cursor.fetchone() is not None
+        
+        if not target_exists:
+            print(f"Target {data['target_id']} is new to notes table")
+            
+        # Add the note
         cursor.execute(
             'INSERT INTO notes (target_id, content, timestamp) VALUES (?, ?, datetime("now", "localtime"))',
             (data['target_id'], data['content'])

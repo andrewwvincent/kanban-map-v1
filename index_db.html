@@ -102,59 +102,128 @@
             box-shadow: 0 0 15px rgba(0,0,0,0.2);
             border-radius: 5px;
         }
-        .filter-control {
+        .filter-container {
             position: absolute;
             top: 10px;
             right: 10px;
-            z-index: 1000;
             background: white;
             padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 200px;
         }
-        .parent-checkbox {
-            font-weight: bold;
-            margin-bottom: 5px;
+
+        .filter-section {
+            margin-bottom: 15px;
         }
-        .child-checkboxes {
-            margin-left: 20px;
+
+        .filter-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #333;
+            display: flex;
+            align-items: center;
         }
-        .indeterminate {
-            position: relative;
+
+        .filter-section label {
+            display: flex;
+            align-items: center;
+            margin: 6px 0;
+            font-size: 12px;
+            cursor: pointer;
         }
-        .indeterminate::after {
-            content: "−";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
+
+        .filter-section input[type="checkbox"] {
+            margin-right: 8px;
         }
+
+        .status-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .filter-section .status-filter {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-left: 12px;
+        }
+
         .map-marker {
             -webkit-text-stroke: 1px black;
             text-stroke: 1px black;
             filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.5));
+        }
+        .custom-marker.highlighted {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        #closeMapButton {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1001;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
         }
     </style>
 </head>
 <body>
     <div id="map-container">
         <div id="map"></div>
-        <div class="filter-control">
-            <h4>Filters</h4>
-            <div id="statusFilters">
-                <h5>Athletic Centers</h5>
-                <label>
-                    <input type="checkbox" id="athletic_centers" checked>
-                    All Athletic Centers
-                </label>
-                <div class="sub-filters">
-                    <label><input type="checkbox" class="status-filter" data-status="not contacted" checked> Not Contacted</label>
-                    <label><input type="checkbox" class="status-filter" data-status="initial contact" checked> Initial Contact</label>
-                    <label><input type="checkbox" class="status-filter" data-status="in discussion" checked> In Discussion</label>
-                    <label><input type="checkbox" class="status-filter" data-status="partnership agreed" checked> Partnership Agreed</label>
-                    <label><input type="checkbox" class="status-filter" data-status="partnership active" checked> Partnership Active</label>
-                    <label><input type="checkbox" class="status-filter" data-status="not interested" checked> Not Interested</label>
+        <div class="filter-container">
+            <div class="filter-section">
+                <h3>Athletic Centers</h3>
+                <div class="status-filter">
+                    <label>
+                        <input type="checkbox" id="not-contacted-filter" checked>
+                        <span class="status-color-dot" style="background-color: #808080;"></span>
+                        Not Contacted
+                    </label>
+                    <label>
+                        <input type="checkbox" id="initial-contact-filter" checked>
+                        <span class="status-color-dot" style="background-color: #FFA500;"></span>
+                        Initial Contact
+                    </label>
+                    <label>
+                        <input type="checkbox" id="in-discussion-filter" checked>
+                        <span class="status-color-dot" style="background-color: #4169E1;"></span>
+                        In Discussion
+                    </label>
+                    <label>
+                        <input type="checkbox" id="partnership-agreed-filter" checked>
+                        <span class="status-color-dot" style="background-color: #32CD32;"></span>
+                        Partnership Agreed
+                    </label>
+                    <label>
+                        <input type="checkbox" id="partnership-active-filter" checked>
+                        <span class="status-color-dot" style="background-color: #006400;"></span>
+                        Partnership Active
+                    </label>
+                    <label>
+                        <input type="checkbox" id="not-interested-filter" checked>
+                        <span class="status-color-dot" style="background-color: #FF0000;"></span>
+                        Not Interested
+                    </label>
                 </div>
             </div>
         </div>
@@ -163,6 +232,7 @@
     <div id="kanban-container">
         <iframe id="kanban-frame" src="kanban.html"></iframe>
     </div>
+    <button id="closeMapButton" onclick="closeMap()">Close Map</button>
 
     <script>
         // Initialize the map
@@ -182,7 +252,7 @@
             'initial contact': '#FFA500',    // Orange
             'in discussion': '#4169E1',      // Royal Blue
             'partnership agreed': '#32CD32',  // Lime Green
-            'partnership active': '#228B22',  // Forest Green
+            'partnership active': '#006400',  // Forest Green
             'not interested': '#FF0000'      // Red
         };
 
@@ -276,6 +346,25 @@
             // Add markers to map
             map.addLayer(targetMarkers);
 
+            // Handle filter changes
+            document.querySelectorAll('.status-filter input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const status = this.id.replace('-filter', '').replace('-', ' ');
+                    updateMarkerVisibility();
+                });
+            });
+
+            function updateMarkerVisibility() {
+                const activeFilters = Array.from(document.querySelectorAll('.status-filter input[type="checkbox"]'))
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.id.replace('-filter', '').replace('-', ' '));
+
+                targetMarkers.eachLayer(marker => {
+                    const status = marker.targetData.status.toLowerCase();
+                    marker.setOpacity(activeFilters.includes(status) ? 1 : 0);
+                });
+            }
+
             // Function to update parent checkbox state
             function updateParentCheckbox(parentId, childrenSelector) {
                 const parent = document.getElementById(parentId);
@@ -361,6 +450,18 @@
 
         function getColorForStatus(status) {
             return statusColors[status] || '#000';
+        }
+
+        function createMarkerIcon(status) {
+            const size = getMarkerSize(map.getZoom());
+            const faSize = Math.floor(size * 1.5);
+            return L.divIcon({
+                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
+                className: 'custom-marker',
+                iconSize: [size, size],
+                iconAnchor: [size/2, size],
+                popupAnchor: [0, -size]
+            });
         }
 
         // Add resize handle functionality
@@ -490,8 +591,63 @@
                         targetMarkers.addLayer(marker);
                     }
                 }
+            } else if (event.data.type === 'locatePin') {
+                // Find and focus on the pin
+                const { lat, lng, organization } = event.data.data;
+                
+                // Zoom to the pin location
+                map.setView([lat, lng], 15);
+                
+                // Find the marker
+                const marker = targetMarkers.getLayers().find(layer => 
+                    layer.targetData.organization === organization
+                );
+                
+                if (marker) {
+                    // Open the popup
+                    marker.openPopup();
+                    
+                    // Highlight the marker temporarily
+                    const originalIcon = marker.getIcon();
+                    marker.setIcon(L.divIcon({
+                        className: 'custom-marker highlighted',
+                        html: `<div style="background-color: ${statusColors[marker.targetData.status]}">
+                                <span class="pulse"></span>
+                              </div>`,
+                        iconSize: [30, 30]
+                    }));
+                    
+                    // Reset after animation
+                    setTimeout(() => {
+                        marker.setIcon(originalIcon);
+                    }, 2000);
+                }
+            } else if (event.data.type === 'locateTarget') {
+                const { lat, lng, name } = event.data.data;
+                
+                // Show close button
+                document.getElementById('closeMapButton').style.display = 'block';
+                
+                // Center map on location
+                map.setView([lat, lng], 13);
+                
+                // Find existing marker or create new one
+                let marker = targetMarkers.getLayers().find(m => m.getLatLng().lat === lat && m.getLatLng().lng === lng);
+                if (!marker) {
+                    marker = L.marker([lat, lng]).addTo(map);
+                    targetMarkers.addLayer(marker);
+                }
+                
+                // Open popup
+                marker.bindPopup(name).openPopup();
             }
         });
+        
+        function closeMap() {
+            // Send message to parent to hide map
+            window.parent.postMessage({ type: 'closeMap' }, '*');
+            document.getElementById('closeMapButton').style.display = 'none';
+        }
     </script>
 </body>
 </html>
