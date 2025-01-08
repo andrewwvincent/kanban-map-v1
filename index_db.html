@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Locations Map</title>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #map-container {
+            flex: 1;
+            position: relative;
+            min-height: 200px;
+            height: 60%;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #resize-handle {
+            height: 10px;
+            background: #e0e0e0;
+            cursor: row-resize;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+
+        #resize-handle::before {
+            content: "";
+            width: 30px;
+            height: 4px;
+            background: #999;
+            border-radius: 2px;
+        }
+
+        #resize-handle:hover {
+            background: #ccc;
+        }
+
+        #kanban-container {
+            flex: 1;
+            min-height: 200px;
+            height: 40%;
+            overflow: hidden;
+        }
+
+        #kanban-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .legend {
+            padding: 10px;
+            background: white;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            line-height: 24px;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+        .info {
+            padding: 6px 8px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+        }
+        .filter-control {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .parent-checkbox {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .child-checkboxes {
+            margin-left: 20px;
+        }
+        .indeterminate {
+            position: relative;
+        }
+        .indeterminate::after {
+            content: "−";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+        }
+        .map-marker {
+            -webkit-text-stroke: 1px black;
+            text-stroke: 1px black;
+            filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.5));
+        }
+    </style>
+</head>
+<body>
+    <div id="map-container">
+        <div id="map"></div>
+        <div class="filter-control">
+            <h4>Filters</h4>
+            <div>
+                <div class="parent-checkbox">
+                    <input type="checkbox" id="all_grades">
+                    <label for="all_grades">ZIP Grades</label>
+                </div>
+                <div class="child-checkboxes" id="gradeFilters"></div>
+            </div>
+            <div>
+                <div class="parent-checkbox">
+                    <input type="checkbox" id="all_clusters">
+                    <label for="all_clusters">Cluster Types</label>
+                </div>
+                <div class="child-checkboxes" id="clusterFilters"></div>
+            </div>
+            <div>
+                <div class="parent-checkbox">
+                    <input type="checkbox" id="all_targets">
+                    <label for="all_targets">All Targets</label>
+                </div>
+                <div class="child-checkboxes">
+                    <div class="parent-checkbox">
+                        <input type="checkbox" id="athletic_centers">
+                        <label for="athletic_centers">Athletic Centers</label>
+                    </div>
+                    <div class="child-checkboxes" id="statusFilters"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="resize-handle"></div>
+    <div id="kanban-container">
+        <iframe id="kanban-frame" src="kanban.html"></iframe>
+    </div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([39.8283, -98.5795], 4);
+        
+        // Base map layer
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            minZoom: 3
+        }).addTo(map);
+
+        // Administrative boundaries layer
+        L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png', {
+            opacity: 0.3
+        }).addTo(map);
+
+        // Define colors
+        const gradeColors = {
+            'A': '#2ECC40',  // Green
+            'B': '#0074D9',  // Blue
+            'C': '#FFDC00',  // Yellow
+            'D': '#FF851B',  // Orange
+            'F': '#FF4136',  // Red
+            'Ungraded': '#AAAAAA'  // Gray
+        };
+
+        const clusterColors = {
+            'A_5mi': '#2ECC40',    // Green
+            'A_10mi': '#3D9970',   // Dark Green
+            'AB_5mi': '#0074D9',   // Blue
+            'AB_10mi': '#001f3f',  // Dark Blue
+            'ABC_5mi': '#FFDC00',  // Yellow
+            'ABC_10mi': '#FF851B', // Orange
+            'BC_5mi': '#B10DC9',   // Purple
+            'BC_10mi': '#85144b'   // Maroon
+        };
+
+        const statusColors = {
+            'not contacted': '#808080',      // Gray
+            'initial contact': '#FFA500',    // Orange
+            'in discussion': '#4169E1',      // Royal Blue
+            'partnership agreed': '#32CD32',  // Lime Green
+            'partnership active': '#228B22',  // Forest Green
+            'not interested': '#FF0000'      // Red
+        };
+
+        // Function to get marker size based on zoom level
+        function getMarkerSize(zoomLevel) {
+            if (zoomLevel >= 15) return 48;
+            if (zoomLevel >= 12) return 36;
+            if (zoomLevel >= 9) return 28;
+            return 24;
+        }
+
+        // Create layer groups
+        let zipMarkers = L.layerGroup();
+        let targetMarkers = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true,
+            iconCreateFunction: function(cluster) {
+                const childCount = cluster.getChildCount();
+                let c = ' marker-cluster-';
+                if (childCount < 10) {
+                    c += 'small';
+                } else if (childCount < 100) {
+                    c += 'medium';
+                } else {
+                    c += 'large';
+                }
+
+                const markers = cluster.getAllChildMarkers();
+                const statusCounts = markers.reduce((counts, marker) => {
+                    const status = marker.options.status;
+                    counts[status] = (counts[status] || 0) + 1;
+                    return counts;
+                }, {});
+
+                const dominantStatus = Object.entries(statusCounts)
+                    .sort((a, b) => b[1] - a[1])[0][0];
+
+                const color = statusColors[dominantStatus];
+
+                return new L.DivIcon({
+                    html: '<div style="background-color: ' + color + '"><span>' + childCount + '</span></div>',
+                    className: 'marker-cluster' + c,
+                    iconSize: new L.Point(40, 40)
+                });
+            }
+        });
+        let clusterLayers = {};
+
+        // Function to create convex hull
+        function createConvexHull(points) {
+            if (points.length < 3) return points;
+            
+            // Graham scan algorithm
+            function cross(o, a, b) {
+                return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+            }
+            
+            points.sort((a, b) => {
+                return a[0] === b[0] ? a[1] - b[1] : a[0] - b[0];
+            });
+            
+            let lower = [];
+            for (let i = 0; i < points.length; i++) {
+                while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], points[i]) <= 0) {
+                    lower.pop();
+                }
+                lower.push(points[i]);
+            }
+            
+            let upper = [];
+            for (let i = points.length - 1; i >= 0; i--) {
+                while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], points[i]) <= 0) {
+                    upper.pop();
+                }
+                upper.push(points[i]);
+            }
+            
+            upper.pop();
+            lower.pop();
+            return lower.concat(upper);
+        }
+
+        // Function to update parent checkbox state
+        function updateParentCheckbox(parentId, childrenSelector) {
+            const parent = document.getElementById(parentId);
+            const children = document.querySelectorAll(childrenSelector);
+            const checkedCount = Array.from(children).filter(child => child.checked).length;
+            
+            if (checkedCount === 0) {
+                parent.checked = false;
+                parent.indeterminate = false;
+            } else if (checkedCount === children.length) {
+                parent.checked = true;
+                parent.indeterminate = false;
+            } else {
+                parent.checked = false;
+                parent.indeterminate = true;
+            }
+        }
+
+        // Function to toggle all children based on parent state
+        function toggleChildren(parentId, childrenSelector) {
+            const parent = document.getElementById(parentId);
+            const children = document.querySelectorAll(childrenSelector);
+            children.forEach(child => {
+                child.checked = parent.checked;
+            });
+        }
+
+        // Update marker sizes when zoom changes
+        map.on('zoomend', function() {
+            const currentZoom = map.getZoom();
+            const newSize = getMarkerSize(currentZoom);
+            
+            targetMarkers.eachLayer(function(marker) {
+                const icon = marker.getIcon();
+                const faSize = Math.floor(newSize * 1.5); // Make Font Awesome icons larger
+                icon.options.html = `<i class="fas fa-map-marker-alt map-marker" style="color: ${marker.options.status ? statusColors[marker.options.status] : '#000'}; font-size: ${faSize}px;"></i>`;
+                icon.options.iconSize = [newSize, newSize];
+                icon.options.iconAnchor = [newSize/2, faSize];
+                marker.setIcon(icon);
+            });
+        });
+
+        // Load data from our API
+        Promise.all([
+            fetch('/api/targets').then(resp => resp.json()),
+            fetch('/api/zips').then(resp => resp.json())
+        ]).then(([targetsData, zips]) => {
+            // Store targets globally
+            targets = targetsData;
+            console.log("Loaded targets:", targets.length);
+            console.log("Sample target:", targets[0]);
+
+            // Create filter controls
+            const gradeFilters = document.getElementById('gradeFilters');
+            Object.entries(gradeColors).forEach(([grade, color]) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <input type="checkbox" id="grade_${grade}">
+                    <label for="grade_${grade}">
+                        <i class="fas fa-circle" style="color: ${color}"></i>
+                        Grade ${grade}
+                    </label>
+                `;
+                div.querySelector('input').addEventListener('change', () => {
+                    updateParentCheckbox('all_grades', '#gradeFilters input[type="checkbox"]');
+                    updateFilters();
+                });
+                gradeFilters.appendChild(div);
+            });
+
+            // Add parent grade checkbox handler
+            document.getElementById('all_grades').addEventListener('change', function() {
+                toggleChildren('all_grades', '#gradeFilters input[type="checkbox"]');
+                updateFilters();
+            });
+
+            const clusterFilters = document.getElementById('clusterFilters');
+            Object.entries(clusterColors).forEach(([type, color]) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <input type="checkbox" id="cluster_${type}" ${type === 'A_10mi' ? 'checked' : ''}>
+                    <label for="cluster_${type}">
+                        <i class="fas fa-square" style="color: ${color}"></i>
+                        ${type}
+                    </label>
+                `;
+                div.querySelector('input').addEventListener('change', () => {
+                    updateParentCheckbox('all_clusters', '#clusterFilters input[type="checkbox"]');
+                    updateFilters();
+                });
+                clusterFilters.appendChild(div);
+            });
+
+            // Add parent cluster checkbox handler
+            document.getElementById('all_clusters').addEventListener('change', function() {
+                toggleChildren('all_clusters', '#clusterFilters input[type="checkbox"]');
+                updateFilters();
+            });
+
+            const statusFilters = document.getElementById('statusFilters');
+            Object.entries(statusColors).forEach(([status, color]) => {
+                const div = document.createElement('div');
+                const statusId = status.replace(/ /g, '_');
+                div.innerHTML = `
+                    <input type="checkbox" id="status_${statusId}" checked>
+                    <label for="status_${statusId}">
+                        <i class="fas fa-map-marker-alt" style="color: ${color}"></i>
+                        ${status.replace(/\b\w/g, l => l.toUpperCase())}
+                    </label>
+                `;
+                div.querySelector('input').addEventListener('change', () => {
+                    updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
+                    updateParentCheckbox('all_targets', '#athletic_centers');
+                    updateFilters();
+                });
+                statusFilters.appendChild(div);
+            });
+
+            // Add parent target checkbox handlers
+            document.getElementById('athletic_centers').addEventListener('change', function() {
+                toggleChildren('athletic_centers', '#statusFilters input[type="checkbox"]');
+                updateParentCheckbox('all_targets', '#athletic_centers');
+                updateFilters();
+            });
+
+            document.getElementById('all_targets').addEventListener('change', function() {
+                this.indeterminate = false;
+                const athleticCenters = document.getElementById('athletic_centers');
+                athleticCenters.checked = this.checked;
+                athleticCenters.indeterminate = false;
+                toggleChildren('athletic_centers', '#statusFilters input[type="checkbox"]');
+                updateFilters();
+            });
+
+            // Set initial checkbox states
+            document.getElementById('all_targets').checked = true;
+            document.getElementById('athletic_centers').checked = true;
+            document.getElementById('all_grades').checked = false;
+            document.getElementById('all_clusters').checked = false;
+
+            // Function to update visible layers based on filters
+            function updateFilters() {
+                console.log("Updating filters...");
+                console.log("Targets available:", targets.length);
+                
+                // Clear existing markers
+                zipMarkers.clearLayers();
+                targetMarkers.clearLayers();
+                map.removeLayer(targetMarkers);
+                map.removeLayer(zipMarkers);
+
+                // Handle ZIP markers
+                if (document.getElementById('all_grades').checked) {
+                    const selectedGrades = Object.keys(gradeColors).filter(grade => 
+                        document.getElementById(`grade_${grade}`).checked
+                    );
+                    console.log("Selected grades:", selectedGrades);
+
+                    zips.forEach(zip => {
+                        if (selectedGrades.includes(zip.grade)) {
+                            const marker = L.circleMarker([zip.latitude, zip.longitude], {
+                                radius: 3,
+                                color: 'black',
+                                weight: 1,
+                                fill: true,
+                                fillColor: gradeColors[zip.grade],
+                                fillOpacity: 0.7,
+                                opacity: 1
+                            });
+
+                            const popupContent = `
+                                <b>ZIP: ${zip.zip_code}</b><br>
+                                Grade: ${zip.grade}<br>
+                                Population: ${zip.total_pop.toLocaleString()}<br>
+                                Income: $${zip.median_income.toLocaleString()}<br>
+                                Households: ${zip.households.toLocaleString()}
+                            `;
+                            
+                            marker.bindPopup(popupContent);
+                            zipMarkers.addLayer(marker);
+                        }
+                    });
+
+                    if (zipMarkers.getLayers().length > 0) {
+                        zipMarkers.addTo(map);
+                    }
+                }
+
+                // Handle target markers
+                const allTargetsChecked = document.getElementById('all_targets').checked;
+                const athleticCentersChecked = document.getElementById('athletic_centers').checked;
+
+                // Get selected statuses, using underscores in IDs
+                const selectedStatuses = Object.keys(statusColors).filter(status => {
+                    const statusId = `status_${status.replace(/ /g, '_')}`;
+                    return document.getElementById(statusId).checked;
+                });
+                console.log("Selected statuses:", selectedStatuses);
+
+                // Only proceed if either all targets or specific statuses are selected
+                if (allTargetsChecked || selectedStatuses.length > 0) {
+                    targets.forEach(target => {
+                        if (!target.latitude || !target.longitude) {
+                            console.log("Target missing coordinates:", target);
+                            return;
+                        }
+                        
+                        const status = target.status || 'not contacted';
+                        // Show the marker if either:
+                        // 1. All targets are checked, or
+                        // 2. The specific status is checked
+                        if (!selectedStatuses.includes(status)) {
+                            console.log("Target status not selected:", status);
+                            return;
+                        }
+
+                        console.log("Adding target:", target.organization, target.latitude, target.longitude, status);
+
+                        const currentZoom = map.getZoom();
+                        const size = getMarkerSize(currentZoom);
+                        const faSize = Math.floor(size * 1.5);
+                        
+                        const marker = L.marker([target.latitude, target.longitude], {
+                            icon: L.divIcon({
+                                className: 'custom-div-icon',
+                                html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
+                                iconSize: [size, size],
+                                iconAnchor: [size/2, faSize]
+                            }),
+                            status: status
+                        });
+
+                        const popupContent = `
+                            <b>${target.organization}</b><br>
+                            ${target.address}<br>
+                            Phone: ${target.phone || 'N/A'}<br>
+                            Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
+                            Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
+                            Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
+                        `;
+                        
+                        marker.bindPopup(popupContent);
+                        targetMarkers.addLayer(marker);
+                    });
+
+                    console.log("Target markers added:", targetMarkers.getLayers().length);
+                    if (targetMarkers.getLayers().length > 0) {
+                        targetMarkers.addTo(map);
+                    }
+                }
+
+                // Handle cluster layers separately
+                const selectedClusters = Object.keys(clusterColors).filter(type => 
+                    document.getElementById(`cluster_${type}`).checked
+                );
+                console.log("Selected clusters:", selectedClusters);
+
+                // Remove existing cluster layers
+                Object.values(clusterLayers).forEach(layer => layer.remove());
+                clusterLayers = {};
+
+                // Add new cluster layers
+                if (selectedClusters.length > 0) {
+                    selectedClusters.forEach(clusterType => {
+                        fetch(`/api/clusters/${clusterType}`).then(resp => resp.json())
+                            .then(clusters => {
+                                const layer = L.layerGroup();
+                                Object.entries(clusters).forEach(([clusterId, clusterZips]) => {
+                                    const coords = clusterZips.map(zip => [zip.lat, zip.lng]);
+                                    if (coords.length >= 3) {
+                                        const hull = createConvexHull(coords);
+                                        const totalPop = clusterZips.reduce((sum, zip) => sum + zip.total_pop, 0);
+                                        const avgIncome = clusterZips.reduce((sum, zip) => sum + zip.median_income, 0) / clusterZips.length;
+
+                                        const polygon = L.polygon(hull, {
+                                            color: clusterColors[clusterType],
+                                            fillOpacity: 0.2,
+                                            weight: 2
+                                        }).bindPopup(`
+                                            <b>Cluster ${clusterId}</b><br>
+                                            ZIPs: ${clusterZips.length}<br>
+                                            Total Population: ${totalPop.toLocaleString()}<br>
+                                            Average Income: $${Math.round(avgIncome).toLocaleString()}
+                                        `);
+                                        
+                                        layer.addLayer(polygon);
+                                    }
+                                });
+                                
+                                clusterLayers[clusterType] = layer;
+                                if (document.getElementById(`cluster_${clusterType}`).checked) {
+                                    layer.addTo(map);
+                                }
+                            });
+                    });
+                }
+            }
+
+            // Initial parent checkbox states
+            updateParentCheckbox('all_grades', '#gradeFilters input[type="checkbox"]');
+            updateParentCheckbox('all_clusters', '#clusterFilters input[type="checkbox"]');
+            updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
+            updateParentCheckbox('all_targets', '#athletic_centers');
+
+            // Initial update
+            updateFilters();
+        });
+
+        // Add resize handle functionality
+        const mapContainer = document.getElementById('map-container');
+        const resizeHandle = document.getElementById('resize-handle');
+        const kanbanContainer = document.getElementById('kanban-container');
+        let isDragging = false;
+
+        resizeHandle.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            document.body.style.cursor = 'row-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+
+            const containerHeight = window.innerHeight;
+            const y = Math.min(Math.max(200, e.clientY), containerHeight - 200);
+            const mapHeight = y;
+            const kanbanHeight = containerHeight - y - 10; // 10px for resize handle
+
+            mapContainer.style.height = mapHeight + 'px';
+            mapContainer.style.flex = 'none';
+            kanbanContainer.style.height = kanbanHeight + 'px';
+            kanbanContainer.style.flex = 'none';
+
+            // Trigger map resize event to ensure proper rendering
+            map.invalidateSize();
+        });
+
+        document.addEventListener('mouseup', function() {
+            isDragging = false;
+            document.body.style.cursor = '';
+        });
+
+        // Ensure map renders correctly in resized container
+        window.addEventListener('resize', function() {
+            map.invalidateSize();
+        });
+
+        // Listen for messages from the kanban iframe
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'updateMapPin') {
+                const target = event.data.target;
+                let markerFound = false;
+                
+                // Find and update the marker for this target
+                targetMarkers.getLayers().forEach(marker => {
+                    const popup = marker.getPopup();
+                    if (popup) {
+                        const content = popup.getContent();
+                        // Check if this is the marker for our target
+                        if (content.includes(`<b>${target.organization}</b>`)) {
+                            markerFound = true;
+                            // Update marker color based on new status
+                            const status = target.status;
+                            const currentZoom = map.getZoom();
+                            const size = getMarkerSize(currentZoom);
+                            const faSize = Math.floor(size * 1.5);
+                            
+                            const newIcon = L.divIcon({
+                                className: 'custom-div-icon',
+                                html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
+                                iconSize: [size, size],
+                                iconAnchor: [size/2, faSize]
+                            });
+                            
+                            marker.setIcon(newIcon);
+                            
+                            // Update popup content
+                            const newPopupContent = `
+                                <b>${target.organization}</b><br>
+                                ${target.address}<br>
+                                Phone: ${target.phone || 'N/A'}<br>
+                                Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
+                                Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
+                                Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
+                            `;
+                            marker.setPopupContent(newPopupContent);
+                            
+                            // Update marker status property
+                            marker.options.status = status;
+                            
+                            // If the marker's status is not in the selected statuses, remove it
+                            const selectedStatuses = Object.keys(statusColors).filter(s => {
+                                const statusId = `status_${s.replace(/ /g, '_')}`;
+                                return document.getElementById(statusId).checked;
+                            });
+                            
+                            if (!selectedStatuses.includes(status)) {
+                                targetMarkers.removeLayer(marker);
+                            }
+                        }
+                    }
+                });
+
+                // If marker wasn't found (might have been filtered out), create a new one
+                if (!markerFound && target.latitude && target.longitude) {
+                    const status = target.status;
+                    const currentZoom = map.getZoom();
+                    const size = getMarkerSize(currentZoom);
+                    const faSize = Math.floor(size * 1.5);
+                    
+                    const marker = L.marker([target.latitude, target.longitude], {
+                        icon: L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<i class="fas fa-map-marker-alt map-marker" style="color: ${statusColors[status]}; font-size: ${faSize}px;"></i>`,
+                            iconSize: [size, size],
+                            iconAnchor: [size/2, faSize]
+                        }),
+                        status: status
+                    });
+
+                    const popupContent = `
+                        <b>${target.organization}</b><br>
+                        ${target.address}<br>
+                        Phone: ${target.phone || 'N/A'}<br>
+                        Status: ${status.replace(/\b\w/g, l => l.toUpperCase())}<br>
+                        Population: ${target.population ? target.population.toLocaleString() : 'N/A'}<br>
+                        Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}
+                    `;
+                    
+                    marker.bindPopup(popupContent);
+                    
+                    // Only add the marker if its status is currently selected
+                    const selectedStatuses = Object.keys(statusColors).filter(s => {
+                        const statusId = `status_${s.replace(/ /g, '_')}`;
+                        return document.getElementById(statusId).checked;
+                    });
+                    
+                    if (selectedStatuses.includes(status)) {
+                        targetMarkers.addLayer(marker);
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
