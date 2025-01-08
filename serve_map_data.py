@@ -183,6 +183,88 @@ def get_clusters(analysis_type):
     finally:
         conn.close()
 
+@app.route('/api/notes/<path:target_id>', methods=['GET'])
+def get_notes(target_id):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM notes WHERE target_id = ? ORDER BY timestamp DESC', (target_id,))
+        notes = []
+        for row in cursor.fetchall():
+            notes.append({
+                'id': row[0],
+                'target_id': row[1],
+                'content': row[2],
+                'timestamp': row[3]
+            })
+        return jsonify(notes)
+    except Exception as e:
+        print(f"Error getting notes: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/notes', methods=['POST'])
+def add_note():
+    data = request.json
+    if not data or 'target_id' not in data or 'content' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        # Use strftime to store timestamp in ISO format
+        cursor.execute(
+            'INSERT INTO notes (target_id, content, timestamp) VALUES (?, ?, datetime("now", "localtime"))',
+            (data['target_id'], data['content'])
+        )
+        conn.commit()
+        note_id = cursor.lastrowid
+        
+        # Get the newly created note
+        cursor.execute('SELECT * FROM notes WHERE id = ?', (note_id,))
+        note = dict(cursor.fetchone())
+        return jsonify(note)
+    except Exception as e:
+        print(f"Error adding note: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/notes/<int:note_id>', methods=['DELETE'])
+def delete_note(note_id):
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        # First check if the note exists
+        cursor.execute('SELECT * FROM notes WHERE id = ?', (note_id,))
+        note = cursor.fetchone()
+        if not note:
+            return jsonify({'error': 'Note not found'}), 404
+            
+        cursor.execute('DELETE FROM notes WHERE id = ?', (note_id,))
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Error deleting note: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/activity_log', methods=['GET'])
+def get_activity_log():
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM activity_log ORDER BY timestamp DESC LIMIT 50')
+        activities = [dict(row) for row in cursor.fetchall()]
+        return jsonify(activities)
+    except Exception as e:
+        print(f"Error getting activity log: {e}")
+        return str(e), 500
+    finally:
+        conn.close()
+
 if __name__ == '__main__':
     print("Starting test server...")
     print(f"Current directory: {os.getcwd()}")

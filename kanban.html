@@ -4,361 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Target Management Board</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f0f2f5;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            background: #f0f2f5;
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .board-container {
-            height: calc(100vh - 100px); /* Subtract header height */
-            overflow-x: auto;
-            overflow-y: hidden;
-            padding: 20px;
-        }
-
-        .board {
-            display: flex;
-            gap: 20px;
-            height: 100%;
-            padding-bottom: 20px;
-            min-width: max-content;
-        }
-
-        .column {
-            background: #f8f9fa;
-            border-radius: 5px;
-            min-width: 300px;
-            width: 300px;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .column-header {
-            padding: 10px;
-            font-weight: bold;
-            border-radius: 3px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: white;
-            position: relative;
-            flex-shrink: 0;
-        }
-
-        /* Column header colors */
-        #not-contacted .column-header {
-            background: #607d8b; /* Blue grey */
-        }
-
-        #initial-contact .column-header {
-            background: #ff9800; /* Orange */
-        }
-
-        #in-discussion .column-header {
-            background: #2196f3; /* Blue */
-        }
-
-        #partnership-agreed .column-header {
-            background: #4caf50; /* Light green */
-        }
-
-        #partnership-active .column-header {
-            background: #2e7d32; /* Dark green */
-        }
-
-        #not-interested .column-header {
-            background: #f44336; /* Red */
-        }
-
-        .column-count {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.9em;
-        }
-
-        .cards-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-            /* Customize scrollbar for cards container */
-            &::-webkit-scrollbar {
-                width: 8px;
-            }
-            
-            &::-webkit-scrollbar-thumb {
-                background-color: rgba(0, 0, 0, .2);
-                border-radius: 4px;
-            }
-            
-            &::-webkit-scrollbar-track {
-                background-color: rgba(0, 0, 0, .05);
-            }
-
-            scrollbar-width: thin;
-            scrollbar-color: rgba(0, 0, 0, .2) rgba(0, 0, 0, .05);
-        }
-
-        .card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
-            cursor: move;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-
-        .card:last-child {
-            margin-bottom: 0;
-        }
-
-        .card-drop-target {
-            height: 2px;
-            background: transparent;
-            transition: height 0.2s ease;
-        }
-
-        .card-drop-target.active {
-            height: 20px;
-            background: #e3f2fd;
-        }
-
-        .search-container {
-            flex: 1;
-            max-width: 400px;
-            margin: 0 20px;
-            position: relative;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .search-input:focus {
-            border-color: #0066cc;
-        }
-
-        .search-clear {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #666;
-            display: none;
-        }
-
-        .card.highlighted {
-            background-color: #fff3cd;
-            border: 1px solid #ffeeba;
-        }
-
-        .card.highlighted .card-details {
-            display: block;
-        }
-
-        .card.expanded {
-            background: #f8f9fa;
-        }
-
-        .card-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-
-        .card-details {
-            display: none;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #eee;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-
-        .card.expanded .card-details {
-            display: block;
-        }
-
-        .card.highlight {
-            border: 2px solid #2196F3;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
-        }
-
-        .card-placeholder {
-            background: #e3f2fd;
-            border: 2px dashed #2196F3;
-            border-radius: 3px;
-            margin: 5px 0;
-            height: 4px;
-            transition: all 0.2s ease;
-        }
-
-        .card-placeholder.active {
-            height: 20px;
-            margin: 10px 0;
-        }
-
-        #activity-log {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            width: 300px;
-            max-height: 300px;
-            background: white;
-            border: 1px solid #ccc;
-            border-radius: 4px 0 0 0;
-            box-shadow: -2px -2px 5px rgba(0,0,0,0.1);
-            overflow-y: auto;
-            z-index: 1000;
-            display: none;
-        }
-
-        #activity-log.show {
-            display: block;
-        }
-
-        #activity-log-header {
-            padding: 10px;
-            background: #f5f5f5;
-            border-bottom: 1px solid #ccc;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #activity-log-content {
-            padding: 10px;
-        }
-
-        .activity-item {
-            padding: 8px;
-            border-bottom: 1px solid #eee;
-            font-size: 0.9em;
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-time {
-            color: #666;
-            font-size: 0.8em;
-        }
-
-        .toggle-activity-log {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 1001;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .toggle-activity-log:hover {
-            background: #1976D2;
-        }
-
-        .sort-button {
-            cursor: pointer;
-            padding: 4px 8px;
-            margin-left: 5px;
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .sort-menu {
-            display: none;
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 100;
-            min-width: 150px;
-            margin-top: 5px;
-            right: 0;
-        }
-
-        .sort-option {
-            display: block;
-            width: 100%;
-            padding: 8px 12px;
-            text-align: left;
-            border: none;
-            background: none;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .sort-option:hover {
-            background: #f0f0f0;
-        }
-
-        .sort-button-container {
-            position: relative;
-            display: inline-block;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/styles/kanban.css">
 </head>
 <body>
     <div class="header">
         <h1>Target Management Board</h1>
         <div class="search-container">
             <input type="text" class="search-input" placeholder="Search organizations..." id="searchInput">
-            <span class="search-clear" id="searchClear">&times;</span>
-            <div id="searchFeedback" style="position: absolute; font-size: 12px; color: #666; margin-top: 4px; display: none;"></div>
+            <span class="search-clear" id="searchClear" onclick="clearSearch()">×</span>
         </div>
     </div>
 
@@ -370,119 +23,119 @@
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'not-contacted')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'not-contacted')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-contacted', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('not-contacted', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cards-container"></div>
             </div>
-            
+
             <div class="column" id="initial-contact" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <div class="column-header">
                     <span>Initial Contact</span>
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'initial-contact')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'initial-contact')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('initial-contact', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('initial-contact', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cards-container"></div>
             </div>
-            
+
             <div class="column" id="in-discussion" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <div class="column-header">
                     <span>In Discussion</span>
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'in-discussion')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'in-discussion')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('in-discussion', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('in-discussion', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cards-container"></div>
             </div>
-            
+
             <div class="column" id="partnership-agreed" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <div class="column-header">
                     <span>Partnership Agreed</span>
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'partnership-agreed')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'partnership-agreed')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('partnership-agreed', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cards-container"></div>
             </div>
-            
+
             <div class="column" id="partnership-active" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <div class="column-header">
                     <span>Partnership Active</span>
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'partnership-active')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'partnership-active')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('partnership-active', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('partnership-active', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cards-container"></div>
             </div>
-            
+
             <div class="column" id="not-interested" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <div class="column-header">
                     <span>Not Interested</span>
                     <div style="display: flex; align-items: center;">
                         <span class="column-count">0</span>
                         <div class="sort-button-container">
-                            <button class="sort-button" onclick="toggleSort(this, 'not-interested')">↕</button>
+                            <button class="sort-button" onclick="toggleSort(this, 'not-interested')">⋮</button>
                             <div class="sort-menu">
-                                <button class="sort-option" onclick="handleSort('not-interested', 'name', 'asc')">Name ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-interested', 'name', 'desc')">Name ↑</button>
-                                <button class="sort-option" onclick="handleSort('not-interested', 'population', 'asc')">Population ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-interested', 'population', 'desc')">Population ↑</button>
-                                <button class="sort-option" onclick="handleSort('not-interested', 'income', 'asc')">Income ↓</button>
-                                <button class="sort-option" onclick="handleSort('not-interested', 'income', 'desc')">Income ↑</button>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'organization', 'asc')">Sort by Name (A-Z)</div>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'organization', 'desc')">Sort by Name (Z-A)</div>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'population', 'desc')">Sort by Population ↓</div>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'population', 'asc')">Sort by Population ↑</div>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'income', 'desc')">Sort by Income ↓</div>
+                                <div class="sort-option" onclick="handleSort('not-interested', 'income', 'asc')">Sort by Income ↑</div>
                             </div>
                         </div>
                     </div>
@@ -492,577 +145,27 @@
         </div>
     </div>
 
-    <button class="toggle-activity-log" onclick="toggleActivityLog()">
-        <i class="fas fa-history"></i>
-    </button>
-
-    <div id="activity-log">
-        <div id="activity-log-header">
-            <h3>Recent Activity</h3>
-            <button onclick="toggleActivityLog()" style="border: none; background: none; cursor: pointer;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div id="activity-log-content"></div>
+    <button class="toggle-activity-log" onclick="toggleActivityLog()">📋</button>
+    <div class="activity-log">
+        <div class="activity-log-header">Activity Log</div>
+        <div class="activity-log-content"></div>
     </div>
 
-    <script>
-        let autoScrollInterval = null;
+    <!-- Notes Popup -->
+    <div id="notes-popup" class="notes-popup" style="display: none;">
+        <div class="notes-header">
+            <h2 id="notes-title">Notes</h2>
+            <button class="close-notes" onclick="closeNotes()">×</button>
+        </div>
+        <div class="notes-content">
+            <div class="notes-list"></div>
+            <div class="add-note">
+                <textarea id="newNoteText" placeholder="Add a new note..."></textarea>
+                <button onclick="addNote()">Add Note</button>
+            </div>
+        </div>
+    </div>
 
-        function startAutoScroll(direction, container) {
-            if (autoScrollInterval) return; // Don't start if already scrolling
-            
-            const scrollSpeed = 10;
-            let lastTimestamp = null;
-            
-            function autoScroll(timestamp) {
-                if (!lastTimestamp) lastTimestamp = timestamp;
-                const elapsed = timestamp - lastTimestamp;
-                
-                if (elapsed > 16) { // Aim for 60fps
-                    container.scrollLeft += direction * scrollSpeed;
-                    lastTimestamp = timestamp;
-                }
-                
-                autoScrollInterval = requestAnimationFrame(autoScroll);
-            }
-            
-            autoScrollInterval = requestAnimationFrame(autoScroll);
-        }
-
-        function stopAutoScroll() {
-            if (autoScrollInterval) {
-                cancelAnimationFrame(autoScrollInterval);
-                autoScrollInterval = null;
-            }
-        }
-
-        function allowDrop(ev) {
-            ev.preventDefault();
-            const targetCard = ev.target.closest('.card');
-            const dropZone = ev.target.closest('.column');
-            const container = document.querySelector('.board-container');
-            
-            // Auto-scroll horizontally
-            const containerRect = container.getBoundingClientRect();
-            const scrollThreshold = 100; // pixels from edge to start scrolling
-            
-            if (ev.clientX > containerRect.right - scrollThreshold) {
-                startAutoScroll(1, container); // Scroll right
-            } else if (ev.clientX < containerRect.left + scrollThreshold) {
-                startAutoScroll(-1, container); // Scroll left
-            } else {
-                stopAutoScroll();
-            }
-            
-            // Remove all existing placeholders first
-            document.querySelectorAll('.card-placeholder').forEach(p => p.remove());
-            
-            if (targetCard && !targetCard.classList.contains('dragging')) {
-                const rect = targetCard.getBoundingClientRect();
-                const midpoint = rect.top + rect.height / 2;
-                
-                const placeholder = createPlaceholder();
-                
-                if (ev.clientY < midpoint) {
-                    targetCard.parentNode.insertBefore(placeholder, targetCard);
-                } else {
-                    targetCard.parentNode.insertBefore(placeholder, targetCard.nextSibling);
-                }
-                placeholder.classList.add('active');
-            } else if (dropZone && !dropZone.querySelector('.card')) {
-                const placeholder = createPlaceholder();
-                dropZone.appendChild(placeholder);
-                placeholder.classList.add('active');
-            }
-        }
-
-        function drag(event) {
-            event.dataTransfer.setData('text/plain', event.target.id);
-            event.target.classList.add('dragging');
-        }
-
-        function dragend(event) {
-            event.target.classList.remove('dragging');
-            stopAutoScroll();
-            document.querySelectorAll('.card-placeholder').forEach(p => p.remove());
-        }
-
-        function drop(event) {
-            event.preventDefault();
-            stopAutoScroll();
-            
-            const data = event.dataTransfer.getData('text/plain');
-            const card = document.getElementById(data);
-            const column = event.target.closest('.column');
-            
-            if (!card || !column) {
-                console.error('Card or column not found:', { cardId: data, card, column });
-                return;
-            }
-            
-            const oldStatus = card.parentElement.id;
-            const newStatus = column.id;
-            const target = JSON.parse(card.dataset.target);
-            
-            // Update the database
-            fetch('/api/update_status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    organization: target.organization,
-                    status: newStatus.replace(/-/g, ' ')
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) {
-                    console.error('Error updating status:', data.error);
-                    return;
-                }
-                
-                // Move the card
-                const container = column.querySelector('.cards-container');
-                container.appendChild(card);
-                updateColumnCounts();
-                
-                // Update the target object with new status
-                target.status = newStatus.replace(/-/g, ' ');
-                card.dataset.target = JSON.stringify(target);
-                
-                // Notify parent window to update the map pin
-                window.parent.postMessage({
-                    type: 'updateMapPin',
-                    target: target
-                }, '*');
-                
-                // Refresh activity log
-                loadActivityLog();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to update card status. Please try again.');
-            });
-        }
-
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
-            const now = new Date();
-            const diff = (now - date) / 1000; // difference in seconds
-            
-            if (diff < 60) {
-                return 'just now';
-            } else if (diff < 3600) {
-                const minutes = Math.floor(diff / 60);
-                return `${minutes}m ago`;
-            } else if (diff < 86400) {
-                const hours = Math.floor(diff / 3600);
-                return `${hours}h ago`;
-            } else {
-                const days = Math.floor(diff / 86400);
-                return `${days}d ago`;
-            }
-        }
-
-        function loadActivityLog() {
-            fetch('/api/activity_log')
-                .then(response => response.json())
-                .then(logs => {
-                    const content = document.getElementById('activity-log-content');
-                    content.innerHTML = logs.map(log => `
-                        <div class="activity-item">
-                            <div><strong>${log.organization}</strong></div>
-                            <div>Moved from "${log.old_status}" to "${log.new_status}"</div>
-                            <div class="activity-time">${formatTime(log.timestamp)}</div>
-                        </div>
-                    `).join('');
-                })
-                .catch(error => console.error('Error loading activity log:', error));
-        }
-
-        function toggleActivityLog() {
-            const log = document.getElementById('activity-log');
-            log.classList.toggle('show');
-            if (log.classList.contains('show')) {
-                loadActivityLog();
-            }
-        }
-
-        function attachCardListeners() {
-            document.querySelectorAll('.card').forEach(card => {
-                // Remove existing listener first to prevent duplicates
-                card.removeEventListener('click', toggleCard);
-                // Add click listener
-                card.addEventListener('click', toggleCard);
-            });
-        }
-
-        function toggleCard(event) {
-            const card = event.target.closest('.card');
-            if (!card) return;
-
-            // If card is highlighted (from search), first remove highlight but keep expanded
-            if (card.classList.contains('highlighted')) {
-                card.classList.remove('highlighted');
-                return;
-            }
-
-            // Normal toggle behavior
-            const details = card.querySelector('.card-details');
-            if (details) {
-                if (details.style.display === '') {
-                    details.style.display = 'block';  // First click should expand
-                } else {
-                    details.style.display = details.style.display === 'none' ? 'block' : 'none';
-                }
-            }
-        }
-
-        // Close menus when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.sort-button-container')) {
-                document.querySelectorAll('.sort-menu').forEach(menu => {
-                    menu.style.display = 'none';
-                });
-            }
-        });
-
-        function searchCards(searchTerm) {
-            if (!searchTerm) {
-                clearSearch();
-                return;
-            }
-
-            const normalizedSearch = searchTerm.toLowerCase().trim();
-            let matchCount = 0;
-
-            // Get all cards across all columns
-            const cards = document.querySelectorAll('.card');
-            
-            // First, remove all highlights
-            cards.forEach(card => {
-                card.classList.remove('highlighted');
-                const details = card.querySelector('.card-details');
-                if (details) {
-                    details.style.display = 'none';
-                }
-            });
-
-            // Then highlight and move matching cards
-            cards.forEach(card => {
-                const cardText = card.textContent.toLowerCase();
-                if (cardText.includes(normalizedSearch)) {
-                    matchCount++;
-                    
-                    // Highlight and expand the card
-                    card.classList.add('highlighted');
-                    const details = card.querySelector('.card-details');
-                    if (details) {
-                        details.style.display = 'block';
-                    }
-
-                    // Move to top of its column
-                    const column = card.parentElement;
-                    column.insertBefore(card, column.firstChild);
-                }
-            });
-
-            // Update search feedback
-            const searchFeedback = document.getElementById('searchFeedback');
-            searchFeedback.textContent = matchCount > 0 
-                ? `Found ${matchCount} match${matchCount === 1 ? '' : 'es'}`
-                : 'No matches found';
-            searchFeedback.style.display = 'block';
-
-            // Reattach card listeners
-            attachCardListeners();
-        }
-
-        // Clear search
-        function clearSearch() {
-            searchInput.value = '';
-            searchClear.style.display = 'none';
-            document.getElementById('searchFeedback').style.display = 'none';
-            
-            // Reset all cards
-            document.querySelectorAll('.card').forEach(card => {
-                card.classList.remove('highlighted');
-                const details = card.querySelector('.card-details');
-                if (details) {
-                    details.style.display = 'none';
-                }
-            });
-
-            // Reattach card listeners
-            attachCardListeners();
-        }
-
-        // Search input handler
-        const searchInput = document.getElementById('searchInput');
-        const searchClear = document.getElementById('searchClear');
-
-        searchInput.addEventListener('input', (e) => {
-            const searchTerm = e.target.value;
-            searchClear.style.display = searchTerm ? 'block' : 'none';
-            if (!searchTerm) {
-                clearSearch();
-            }
-        });
-
-        searchInput.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') {
-                searchCards(e.target.value);
-            }
-            if (e.key === 'Escape') {
-                clearSearch();
-            }
-        });
-
-        // Clear search button
-        searchClear.addEventListener('click', clearSearch);
-
-        // Clear highlight when clicking a card
-        document.addEventListener('click', (e) => {
-            const card = e.target.closest('.card');
-            if (card && card.classList.contains('highlighted')) {
-                card.classList.remove('highlighted');
-                const details = card.querySelector('.card-details');
-                if (details) {
-                    details.style.display = 'none';
-                }
-            }
-        });
-
-        function toggleSort(button, columnId) {
-            // Find the menu next to this button
-            const menu = button.nextElementSibling;
-            
-            // Close all other menus first
-            document.querySelectorAll('.sort-menu').forEach(m => {
-                if (m !== menu) {
-                    m.style.display = 'none';
-                }
-            });
-            
-            // Toggle this menu
-            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function handleSort(columnId, sortBy, direction) {
-            const column = document.getElementById(columnId);
-            const container = column.querySelector('.cards-container');
-            if (!container) {
-                // Try finding it by direct children that contain cards
-                const children = Array.from(column.children);
-                const cardContainer = children.find(child => 
-                    Array.from(child.children).some(el => el.classList.contains('card'))
-                );
-                if (cardContainer) {
-                    console.log('Found card container through alternative method');
-                    container = cardContainer;
-                } else {
-                    console.warn('Column content not found in', column.id);
-                    return;
-                }
-            }
-            const cards = Array.from(container.getElementsByClassName('card'));
-            
-            // Store container position and dimensions
-            const containerRect = container.getBoundingClientRect();
-            const scrollTop = container.scrollTop;
-            
-            // Create a temporary absolute container
-            const tempContainer = document.createElement('div');
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.top = containerRect.top + 'px';
-            tempContainer.style.left = containerRect.left + 'px';
-            tempContainer.style.width = containerRect.width + 'px';
-            tempContainer.style.height = containerRect.height + 'px';
-            tempContainer.style.pointerEvents = 'none';
-            document.body.appendChild(tempContainer);
-            
-            // Move cards to temp container while maintaining their visual position
-            cards.forEach(card => {
-                const rect = card.getBoundingClientRect();
-                const clone = card.cloneNode(true);
-                clone.style.position = 'absolute';
-                clone.style.top = (rect.top - containerRect.top) + 'px';
-                clone.style.left = (rect.left - containerRect.left) + 'px';
-                clone.style.width = rect.width + 'px';
-                clone.style.margin = '0';
-                tempContainer.appendChild(clone);
-            });
-            
-            // Sort the cards array
-            cards.sort((a, b) => {
-                const targetA = JSON.parse(a.dataset.target);
-                const targetB = JSON.parse(b.dataset.target);
-                
-                let valueA, valueB;
-                
-                switch(sortBy) {
-                    case 'name':
-                        valueA = targetA.organization || '';
-                        valueB = targetB.organization || '';
-                        return direction === 'asc' 
-                            ? valueA.localeCompare(valueB)
-                            : valueB.localeCompare(valueA);
-                    
-                    case 'population':
-                        valueA = parseInt(targetA.population) || 0;
-                        valueB = parseInt(targetB.population) || 0;
-                        return direction === 'asc'
-                            ? valueA - valueB
-                            : valueB - valueA;
-                    
-                    case 'income':
-                        valueA = parseInt(targetA.median_income) || 0;
-                        valueB = parseInt(targetB.median_income) || 0;
-                        return direction === 'asc'
-                            ? valueA - valueB
-                            : valueB - valueA;
-                    
-                    default:
-                        return 0;
-                }
-            });
-            
-            // Clear the container
-            container.innerHTML = '';
-            
-            // Add sorted cards back
-            cards.forEach(card => container.appendChild(card));
-            
-            // Remove the temporary container after a short delay
-            setTimeout(() => {
-                tempContainer.remove();
-            }, 100);
-            
-            // Restore scroll position
-            container.scrollTop = scrollTop;
-            
-            // Close all menus
-            document.querySelectorAll('.sort-menu').forEach(menu => {
-                menu.style.display = 'none';
-            });
-        }
-
-        function onload() {
-            fetch('/api/kanban_data')
-                .then(response => response.json())
-                .then(targets => {
-                    // Group targets by status
-                    const columns = targets.reduce((acc, target) => {
-                        const status = target.status || 'not-contacted';
-                        if (!acc[status]) acc[status] = [];
-                        acc[status].push(target);
-                        return acc;
-                    }, {});
-
-                    // Sort targets by organization name initially
-                    Object.values(columns).forEach(columnTargets => {
-                        columnTargets.sort((a, b) => 
-                            (a.organization || '').localeCompare(b.organization || '')
-                        );
-                    });
-
-                    // Populate columns
-                    Object.entries(columns).forEach(([status, columnTargets]) => {
-                        const columnId = status.replace(/ /g, '-');
-                        const column = document.getElementById(columnId);
-                        if (column) {
-                            const container = column.querySelector('.cards-container');
-                            if (container) {
-                                // Clear existing cards
-                                container.innerHTML = '';
-                                
-                                columnTargets.forEach(target => {
-                                    const card = document.createElement('div');
-                                    card.className = 'card';
-                                    card.draggable = true;
-                                    card.ondragstart = drag;
-                                    card.ondragend = dragend;
-                                    card.dataset.target = JSON.stringify(target);
-                                    card.id = 'card-' + target.organization.replace(/[^a-zA-Z0-9]/g, '-');
-                                    card.innerHTML = createCardContent(target);
-                                    container.appendChild(card);
-                                });
-                            }
-                        }
-                    });
-
-                    updateColumnCounts();
-                    document.querySelectorAll('.column').forEach(createDropTargets);
-                    attachCardListeners();
-                })
-                .catch(error => console.error('Error loading data:', error));
-        }
-
-        function updateColumnCounts() {
-            const columns = ['not-contacted', 'initial-contact', 'in-discussion', 'partnership-agreed', 'partnership-active', 'not-interested'];
-            columns.forEach(columnId => {
-                const column = document.getElementById(columnId);
-                const count = column.querySelector('.cards-container').getElementsByClassName('card').length;
-                const header = column.querySelector('.column-header');
-                let countSpan = header.querySelector('.column-count');
-                if (!countSpan) {
-                    countSpan = document.createElement('span');
-                    countSpan.className = 'column-count';
-                    header.appendChild(countSpan);
-                }
-                countSpan.textContent = count;
-            });
-        }
-
-        function createDropTargets(column) {
-            // Add drop target at the top of the column
-            const topTarget = document.createElement('div');
-            topTarget.className = 'card-drop-target';
-            column.insertBefore(topTarget, column.firstChild);
-
-            // Add drop targets between cards
-            const cards = column.querySelector('.cards-container').getElementsByClassName('card');
-            Array.from(cards).forEach(card => {
-                const target = document.createElement('div');
-                target.className = 'card-drop-target';
-                card.parentNode.insertBefore(target, card.nextSibling);
-            });
-        }
-
-        function createCardContent(target) {
-            return `
-                <div class="card-title">${target.organization}</div>
-                <div class="card-details">
-                    <div>Address: ${target.address}</div>
-                    <div>Phone: ${target.phone || 'N/A'}</div>
-                    <div>Website: ${target.website || 'N/A'}</div>
-                    <div>Population: ${target.population ? target.population.toLocaleString() : 'N/A'}</div>
-                    <div>Median Income: ${target.median_income ? '$' + target.median_income.toLocaleString() : 'N/A'}</div>
-                </div>
-            `;
-        }
-
-        function createPlaceholder() {
-            const placeholder = document.createElement('div');
-            placeholder.className = 'card-placeholder';
-            return placeholder;
-        }
-
-        // Load activity log on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            onload();
-            loadActivityLog();
-        });
-
-        // Refresh activity log periodically
-        setInterval(loadActivityLog, 30000); // every 30 seconds
-    </script>
+    <script src="/static/js/kanban.js"></script>
 </body>
 </html>
