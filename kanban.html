@@ -31,6 +31,24 @@
 
     <div class="board-container">
         <div class="board">
+            <div class="column" id="low-priority">
+                <div class="column-header">
+                    <span>Low Priority</span>
+                    <div style="display: flex; align-items: center;">
+                        <span class="column-count">0</span>
+                        <div class="sort-button-container">
+                            <button class="sort-button" onclick="toggleSort('low-priority')">⋮</button>
+                            <div class="sort-menu">
+                                <div class="sort-option" onclick="sortColumn('low-priority', 'organization')">Sort by Name</div>
+                                <div class="sort-option" onclick="sortColumn('low-priority', 'population')">Sort by Population</div>
+                                <div class="sort-option" onclick="sortColumn('low-priority', 'median_income')">Sort by Income</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="cards-container" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragleave(event)"></div>
+            </div>
+
             <div class="column" id="not-contacted">
                 <div class="column-header">
                     <span>Not Contacted</span>

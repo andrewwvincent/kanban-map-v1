@@ -1,6 +1,9 @@
 from flask import Flask, send_from_directory, jsonify, request
 import os
 import sqlite3
+import shutil
+from datetime import datetime
+import json
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
@@ -8,6 +11,13 @@ def get_db_connection():
     conn = sqlite3.connect('data/targets.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route('/')
 def root():
@@ -27,22 +37,59 @@ def dashboard():
 
 @app.route('/api/targets')
 def get_targets():
-    conn = get_db_connection()
+    conn = None
     try:
+        # First, let's check if the database file exists
+        if not os.path.exists('data/targets.db'):
+            print("Database file not found!")
+            return jsonify({'error': 'Database file not found'}), 500
+            
+        conn = get_db_connection()
+        
+        # First, let's count how many records we have
+        count = conn.execute('SELECT COUNT(*) FROM targets').fetchone()[0]
+        print(f"Total records in targets table: {count}")
+        
+        # Now get the actual data
         targets = conn.execute('''
             SELECT t.organization, t.address, t.phone, t.website, t.population, 
                    t.median_income, t.status, t.latitude, t.longitude,
                    z.grade
             FROM targets t
             LEFT JOIN zip_data z ON t.region = z.zip_code
-            WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL
         ''').fetchall()
-        return jsonify([dict(row) for row in targets])
+        
+        # Convert to list for debugging
+        result = [dict(row) for row in targets]
+        print(f"Number of targets returned: {len(result)}")
+        
+        if len(result) == 0:
+            # Let's check what tables exist
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            print(f"Tables in database: {[t[0] for t in tables]}")
+            
+            # Check if targets table exists and has the expected schema
+            schema = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='targets'").fetchone()
+            if schema:
+                print(f"Targets table schema: {schema[0]}")
+            
+            # Check a sample of raw data
+            try:
+                sample = conn.execute("SELECT * FROM targets LIMIT 1").fetchall()
+                print(f"Sample data: {sample}")
+            except Exception as e:
+                print(f"Error getting sample data: {e}")
+        
+        return jsonify(result)
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
     except Exception as e:
         print(f"Error getting targets: {e}")
-        return str(e), 500
+        return jsonify({'error': str(e)}), 500
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/kanban_data')
 def get_kanban_data():
@@ -364,6 +411,237 @@ def get_status_details(status):
         return jsonify({'error': str(e)}), 500
     finally:
         conn.close()
+
+@app.route('/dbmanager')
+def dbmanager():
+    return send_from_directory('.', 'dbmanager.html')
+
+@app.route('/api/db/query', methods=['POST'])
+def execute_query():
+    data = request.get_json()
+    query = data.get('query', '').strip().lower()
+    
+    # Prevent dangerous operations
+    dangerous_keywords = ['drop', 'truncate', 'delete', 'update', 'insert', 'alter', 'create']
+    if any(keyword in query for keyword in dangerous_keywords):
+        return jsonify({'error': 'This type of query is not allowed in the web interface'}), 400
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        
+        # If it's a SELECT query, fetch results
+        if query.startswith('select'):
+            rows = cursor.fetchall()
+            # Convert rows to list of dicts
+            columns = [description[0] for description in cursor.description]
+            results = []
+            for row in rows:
+                row_dict = {}
+                for i, value in enumerate(row):
+                    row_dict[columns[i]] = value
+                results.append(row_dict)
+            return jsonify({'rows': results})
+        
+        conn.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/db/schema')
+def get_schema():
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Get table schemas
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table'")
+        schemas = [row[0] for row in cursor.fetchall() if row[0] is not None]
+        
+        return jsonify(schemas)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/db/backups')
+def list_backups():
+    backup_dir = 'data/backups'
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    
+    backups = []
+    for filename in os.listdir(backup_dir):
+        if filename.endswith('.db'):
+            timestamp = datetime.fromtimestamp(os.path.getctime(os.path.join(backup_dir, filename)))
+            backups.append({
+                'filename': filename,
+                'timestamp': timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            })
+    
+    return jsonify(sorted(backups, key=lambda x: x['timestamp'], reverse=True))
+
+@app.route('/api/db/backup', methods=['POST'])
+def create_backup():
+    backup_dir = 'data/backups'
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = os.path.join(backup_dir, f'targets_{timestamp}.db')
+    
+    try:
+        shutil.copy2('data/targets.db', backup_path)
+        return jsonify({'success': True, 'filename': os.path.basename(backup_path)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/db/backup', methods=['DELETE'])
+def delete_backup():
+    data = request.get_json()
+    filename = data.get('filename')
+    
+    if not filename or '..' in filename:  # Prevent directory traversal
+        return jsonify({'error': 'Invalid filename'}), 400
+    
+    backup_path = os.path.join('data/backups', filename)
+    
+    try:
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Backup not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/db/restore', methods=['POST'])
+def restore_backup():
+    data = request.get_json()
+    filename = data.get('filename')
+    
+    if not filename or '..' in filename:  # Prevent directory traversal
+        return jsonify({'error': 'Invalid filename'}), 400
+    
+    backup_path = os.path.join('data/backups', filename)
+    db_path = 'data/targets.db'
+    
+    try:
+        if not os.path.exists(backup_path):
+            return jsonify({'error': 'Backup not found'}), 404
+        
+        # Create a backup of current state before restoring
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        pre_restore_backup = os.path.join('data/backups', f'pre_restore_{timestamp}.db')
+        
+        # Close any existing connections
+        try:
+            conn = get_db_connection()
+            conn.close()
+        except:
+            pass  # Ignore if no connection exists
+        
+        # Make backup of current state
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, pre_restore_backup)
+        
+        # Restore the selected backup
+        shutil.copy2(backup_path, db_path)
+        
+        # Verify the restored database
+        conn = get_db_connection()
+        try:
+            # Check if we can read from the database
+            count = conn.execute('SELECT COUNT(*) FROM targets').fetchone()[0]
+            print(f"Restored database has {count} targets")
+            return jsonify({'success': True, 'count': count})
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        print(f"Error restoring backup: {e}")
+        # Try to restore from pre-restore backup if it exists
+        if os.path.exists(pre_restore_backup):
+            try:
+                shutil.copy2(pre_restore_backup, db_path)
+                print("Restored from pre-restore backup after error")
+            except Exception as e2:
+                print(f"Error restoring from pre-restore backup: {e2}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download_backup/<filename>')
+def download_backup(filename):
+    backup_dir = 'data/backups'
+    try:
+        return send_from_directory(backup_dir, filename, as_attachment=True)
+    except Exception as e:
+        print(f"Error downloading backup: {e}")
+        return str(e), 500
+
+@app.route('/api/upload_backup', methods=['POST'])
+def upload_backup():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+    
+    if not file.filename.endswith('.db'):
+        return jsonify({'error': 'Invalid file type. Must be a .db file'}), 400
+
+    backup_dir = 'data/backups'
+    db_path = 'data/targets.db'
+    try:
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+        
+        # Save with timestamp to avoid conflicts
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'uploaded_{timestamp}_{file.filename}'
+        file_path = os.path.join(backup_dir, filename)
+        
+        # First save the uploaded file
+        file.save(file_path)
+        
+        # Create a backup of current state before restoring
+        pre_restore_backup = os.path.join(backup_dir, f'pre_restore_{timestamp}.db')
+        
+        # Close any existing connections
+        try:
+            conn = get_db_connection()
+            conn.close()
+        except:
+            pass  # Ignore if no connection exists
+        
+        # Make backup of current state
+        if os.path.exists(db_path):
+            shutil.copy2(db_path, pre_restore_backup)
+        
+        # Restore the uploaded file
+        shutil.copy2(file_path, db_path)
+        
+        # Verify the restored database
+        conn = get_db_connection()
+        try:
+            # Check if we can read from the database
+            count = conn.execute('SELECT COUNT(*) FROM targets').fetchone()[0]
+            print(f"Restored database has {count} targets")
+            return jsonify({'success': True, 'filename': filename, 'count': count})
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        print(f"Error uploading/restoring backup: {e}")
+        # Try to restore from pre-restore backup if it exists
+        if os.path.exists(pre_restore_backup):
+            try:
+                shutil.copy2(pre_restore_backup, db_path)
+                print("Restored from pre-restore backup after error")
+            except Exception as e2:
+                print(f"Error restoring from pre-restore backup: {e2}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("Starting test server...")

@@ -1,5 +1,5 @@
 // Constants
-const API_BASE = window.location.origin;
+const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:5000' : window.location.origin;
 
 // Global variables
 let currentNoteTarget = null;
@@ -13,12 +13,13 @@ function createCardContent(target) {
     const income = target.median_income ? `$${target.median_income.toLocaleString()}` : 'N/A';
     const population = target.population ? target.population.toLocaleString() : 'N/A';
     const escapedOrg = target.organization.replace(/'/g, "\\'");
+    const hasLocation = target.latitude != null && target.longitude != null;
     
     return `
         <div class="card-header">
             <div class="card-title">${target.organization}</div>
             <div class="card-buttons">
-                <button class="locate-btn" onclick="locateOnMap(event, ${target.latitude}, ${target.longitude}, '${escapedOrg}')">📍 Locate</button>
+                ${hasLocation ? `<button class="locate-btn" onclick="locateOnMap(event, ${target.latitude}, ${target.longitude}, '${escapedOrg}')">📍 Locate</button>` : ''}
                 <button onclick="openNotes('${escapedOrg}')">📝</button>
             </div>
         </div>
@@ -87,19 +88,42 @@ function dragend(event) {
 async function loadTargets() {
     try {
         const response = await fetch(`${API_BASE}/api/targets`);
-        if (!response.ok) throw new Error('Failed to fetch targets');
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('Server error:', error);
+            throw new Error(`Server returned ${response.status}: ${error}`);
+        }
         const data = await response.json();
+        if (!Array.isArray(data)) {
+            console.error('Invalid data format:', data);
+            throw new Error('Server returned invalid data format');
+        }
+        console.log(`Loaded ${data.length} targets`);
         renderTargets(data);
     } catch (e) {
         console.error('Error loading targets:', e);
+        // Show error message to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `
+            <p>Error loading data: ${e.message}</p>
+            <p>Make sure the Flask server is running on port 5000.</p>
+            <button onclick="loadTargets()">Retry</button>
+        `;
+        document.querySelector('.kanban-board').prepend(errorDiv);
     }
 }
 
 function renderTargets(targets) {
+    // Clear all existing cards first
+    document.querySelectorAll('.cards-container').forEach(container => {
+        container.innerHTML = '';
+    });
+
     // Group targets by status
     const targetsByStatus = {};
     targets.forEach(target => {
-        const status = target.status || 'Unknown';
+        const status = target.status || 'not-contacted';
         if (!targetsByStatus[status]) {
             targetsByStatus[status] = [];
         }
@@ -113,15 +137,19 @@ function renderTargets(targets) {
         if (column) {
             const cardContainer = column.querySelector('.cards-container');
             if (cardContainer) {
-                cardContainer.innerHTML = '';
                 targetsByStatus[status].forEach(target => {
                     const card = document.createElement('div');
                     card.className = 'card';
                     card.draggable = true;
                     card.id = `card-${target.organization.replace(/[^a-zA-Z0-9]/g, '-')}`;
                     card.dataset.target = JSON.stringify(target);
+                    card.dataset.status = status;
                     card.innerHTML = createCardContent(target);
                     cardContainer.appendChild(card);
+
+                    // Add drag handlers
+                    card.addEventListener('dragstart', drag);
+                    card.addEventListener('dragend', dragend);
 
                     // Add click handler for expansion
                     card.addEventListener('click', function(event) {
@@ -182,25 +210,25 @@ async function updateCardStatus(organization, newStatus) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                organization: organization,
+                organization,
                 status: newStatus
             })
         });
 
+        const data = await response.json();
+        
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error || 'Failed to update status');
+            throw new Error(data.error || 'Failed to update status');
         }
 
-        // Notify map
-        window.parent.postMessage({
-            type: 'updateMapPin',
-            target: { organization, status: newStatus }
-        }, '*');
-
-    } catch (e) {
-        console.error('Error updating status:', e);
-        throw e;
+        // Success! The status has been updated
+        return true;
+    } catch (error) {
+        console.error('Failed to update status:', error);
+        if (!navigator.onLine) {
+            showOfflineNotification();
+        }
+        return false;
     }
 }
 
@@ -339,6 +367,35 @@ function deleteNote(noteId) {
 }
 
 function setupEventListeners() {
+    // Setup search input event listener
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        // Clear old event listeners
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        
+        // Add input event listener
+        newSearchInput.addEventListener('input', (e) => {
+            searchCards(e.target.value);
+        });
+        
+        // Add keydown event for Enter key
+        newSearchInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent form submission if in a form
+                searchCards(this.value);
+            }
+        });
+    }
+    
+    // Setup clear search button
+    const clearSearchBtn = document.getElementById('clearSearch');
+    if (clearSearchBtn) {
+        const newClearBtn = clearSearchBtn.cloneNode(true);
+        clearSearchBtn.parentNode.replaceChild(newClearBtn, clearSearchBtn);
+        newClearBtn.addEventListener('click', clearSearch);
+    }
+
     // Set up event listeners for activity log
     const activityLogContainer = document.querySelector('.activity-log');
     if (activityLogContainer) {
@@ -371,16 +428,6 @@ function setupEventListeners() {
         });
     }
 
-    // Set up search functionality
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                searchCards(event.target.value);
-            }
-        });
-    }
-
     // Close sort menus when clicking outside
     document.addEventListener('click', function(event) {
         if (!event.target.closest('.sort-button-container')) {
@@ -392,34 +439,51 @@ function setupEventListeners() {
 }
 
 function searchCards(query) {
-    if (!query) {
-        // If search is empty, show all cards
-        document.querySelectorAll('.card').forEach(card => {
-            card.style.display = '';
-        });
-        return;
-    }
+    const input = document.getElementById('searchInput');
+    if (input) {
+        if (!query) {
+            // If search is empty, show all cards
+            document.querySelectorAll('.card').forEach(card => {
+                card.style.display = '';
+            });
+            updateColumnCounts();
+            return;
+        }
 
-    query = query.toLowerCase();
-    
-    // Search through all cards
-    document.querySelectorAll('.card').forEach(card => {
-        const targetData = JSON.parse(card.dataset.target);
-        const searchableFields = [
-            targetData.organization,
-            targetData.address,
-            targetData.phone,
-            targetData.grade,
-            targetData.status
-        ].map(field => (field || '').toLowerCase());
+        query = query.toLowerCase();
         
-        // Show card if any field matches the query
-        const matches = searchableFields.some(field => field.includes(query));
-        card.style.display = matches ? '' : 'none';
-    });
-    
-    // Update column counts to reflect visible cards
-    updateColumnCounts();
+        // Search through all cards
+        document.querySelectorAll('.card').forEach(card => {
+            try {
+                const targetData = JSON.parse(card.dataset.target);
+                const searchableFields = [
+                    targetData.organization,
+                    targetData.address,
+                    targetData.phone,
+                    targetData.grade,
+                    targetData.status
+                ].map(field => (field || '').toString().toLowerCase());
+                
+                // Show card if any field matches the query
+                const matches = searchableFields.some(field => field.includes(query));
+                card.style.display = matches ? '' : 'none';
+            } catch (error) {
+                console.error('Error parsing card data:', error);
+                card.style.display = '';  // Show card if there's an error
+            }
+        });
+        
+        // Update column counts to reflect visible cards
+        updateColumnCounts();
+    }
+}
+
+function clearSearch() {
+    const input = document.getElementById('searchInput');
+    if (input) {
+        input.value = '';
+        searchCards('');
+    }
 }
 
 // Sorting functions
@@ -480,58 +544,92 @@ function sortColumn(columnId, sortKey) {
     document.querySelector(`#${columnId} .sort-menu`).classList.remove('visible');
 }
 
-function drop(event) {
+async function drop(event) {
     event.preventDefault();
-    event.stopPropagation();
     
-    if (!draggedCard) {
-        console.error('No dragged card found');
-        return;
-    }
-
+    // Remove drag-over effect from all containers
+    document.querySelectorAll('.cards-container').forEach(container => {
+        container.classList.remove('drag-over');
+    });
+    
+    if (!draggedCard) return;
+    
+    const cardData = JSON.parse(draggedCard.dataset.target);
     const container = event.target.closest('.cards-container');
-    if (!container) {
-        console.error('No valid drop container found');
-        return;
-    }
-
-    // Get the new status from the column
-    const newStatus = container.closest('.column').id.replace(/-/g, ' ');
+    if (!container) return;
     
-    // Get the target data
-    const targetData = JSON.parse(draggedCard.dataset.target);
-    const organization = targetData.organization;
+    const newStatus = container.parentElement.id;
+    const oldStatus = draggedCard.dataset.status;
     
-    // Update the status on the server
-    updateCardStatus(organization, newStatus)
-        .then(() => {
-            // Move the card to the new container
-            if (draggedCard.parentNode) {
-                draggedCard.parentNode.removeChild(draggedCard);
-            }
-            
-            // Insert at the top of the new container
-            const firstCard = container.firstChild;
-            if (firstCard) {
-                container.insertBefore(draggedCard, firstCard);
-            } else {
-                container.appendChild(draggedCard);
-            }
-            
-            // Update target data with new status
-            targetData.status = newStatus;
-            draggedCard.dataset.target = JSON.stringify(targetData);
-            
-            // Update column counts
-            updateColumnCounts();
-        })
-        .catch(error => {
-            console.error('Failed to update card status:', error);
-            // Return card to original position if there was an error
-            if (originalContainer && draggedCard) {
-                originalContainer.appendChild(draggedCard);
-            }
+    if (newStatus === oldStatus) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/update_status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                organization: cardData.organization,
+                status: newStatus
+            })
         });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to update status');
+        }
+        
+        // Update card's visual state
+        draggedCard.dataset.status = newStatus;
+        draggedCard.dataset.target = JSON.stringify({
+            ...cardData,
+            status: newStatus
+        });
+        
+        // Move the card
+        container.appendChild(draggedCard);
+        
+        // Update column counts
+        updateColumnCounts();
+        
+        // Log the change
+        const activityLog = document.getElementById('activityLog');
+        if (activityLog) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="timestamp">${new Date().toLocaleTimeString()}</span>
+                <span class="description">Moved "${cardData.organization}" from ${oldStatus} to ${newStatus}</span>
+            `;
+            activityLog.insertBefore(logEntry, activityLog.firstChild);
+        }
+
+        // Notify map if we're in an iframe
+        if (window !== window.parent) {
+            window.parent.postMessage({
+                type: 'updateMapPin',
+                target: {
+                    ...cardData,
+                    status: newStatus
+                }
+            }, '*');
+        }
+        
+    } catch (error) {
+        console.error('Error updating status:', error);
+        // Move card back to original position if update fails
+        if (originalContainer) {
+            originalContainer.appendChild(draggedCard);
+        }
+        if (!navigator.onLine) {
+            showOfflineNotification();
+        }
+    }
+    
+    draggedCard = null;
+    originalContainer = null;
 }
 
 function closeNotes() {

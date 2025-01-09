@@ -64,28 +64,33 @@ body {
 }
 
 /* Column header colors */
+#low-priority .column-header {
+    background-color: #D3D3D3;  /* Light gray */
+}
+
 #not-contacted .column-header {
-    background: #607d8b; /* Blue grey */
+    background-color: #2D3436;  /* Dark gray/black */
+    color: white;
 }
 
 #initial-contact .column-header {
-    background: #ff9800; /* Orange */
+    background-color: #FFA500;  /* Orange */
 }
 
 #in-discussion .column-header {
-    background: #2196f3; /* Blue */
+    background-color: #4169E1;  /* Royal Blue */
 }
 
 #partnership-agreed .column-header {
-    background: #4caf50; /* Light green */
+    background-color: #32CD32;  /* Lime Green */
 }
 
 #partnership-active .column-header {
-    background: #2e7d32; /* Dark green */
+    background-color: #006400;  /* Forest Green */
 }
 
 #not-interested .column-header {
-    background: #f44336; /* Red */
+    background-color: #FF0000;  /* Red */
 }
 
 .column-count {
@@ -132,6 +137,27 @@ body {
     white-space: normal;
     cursor: grab;
     transition: all 0.2s ease;
+    color: #333;  /* Ensure dark text for all cards */
+}
+
+.card .card-details {
+    color: #666;  /* Gray for details text */
+}
+
+.card .card-buttons button {
+    background: white;
+    border: 1px solid #ddd;
+    color: #333;
+}
+
+.card .card-buttons button:hover {
+    background: #f5f5f5;
+}
+
+.card[data-status] {
+    /* Reset any status-specific styles */
+    background: white;
+    color: #333;
 }
 
 .card:active {
@@ -183,34 +209,42 @@ body {
 }
 
 .search-container {
-    flex: 1;
-    max-width: 400px;
-    margin: 0 20px;
     position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .search-input {
-    width: 100%;
-    padding: 8px 12px;
+    padding: 8px 30px 8px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
+    width: 250px;
+    transition: border-color 0.2s ease;
 }
 
 .search-input:focus {
-    border-color: #0066cc;
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
 }
 
 .search-clear {
     position: absolute;
-    right: 10px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    color: #666;
-    display: none;
+    color: #999;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.search-clear:hover {
+    background-color: rgba(0,0,0,0.1);
 }
 
 .card.highlighted {
@@ -441,7 +475,7 @@ body {
     max-height: 400px;
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     display: none;
     z-index: 999;
@@ -556,4 +590,27 @@ body {
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+.error-message {
+    background-color: #fff3f3;
+    border: 1px solid #ff8080;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 10px;
+    text-align: center;
+}
+
+.error-message button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.error-message button:hover {
+    background-color: #45a049;
 }

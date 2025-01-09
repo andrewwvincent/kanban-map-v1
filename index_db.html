@@ -185,6 +185,49 @@
             cursor: pointer;
             display: none;
         }
+
+        /* Update cluster marker styles */
+        .marker-cluster {
+            background: none !important;
+            border: none !important;
+        }
+        
+        .marker-cluster div {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            color: #333 !important;
+            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 0 0 4px rgba(200, 200, 200, 0.6);
+        }
+        
+        .marker-cluster-small {
+            background-color: rgba(181, 226, 140, 0.6);
+        }
+        
+        .marker-cluster-small div {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .marker-cluster-medium {
+            background-color: rgba(241, 211, 87, 0.6);
+        }
+        
+        .marker-cluster-medium div {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .marker-cluster-large {
+            background-color: rgba(253, 156, 115, 0.6);
+        }
+        
+        .marker-cluster-large div {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
     </style>
 </head>
 <body>
@@ -193,10 +236,15 @@
         <div class="filter-container">
             <div class="filter-section">
                 <h3>Athletic Centers</h3>
-                <div class="status-filter">
+                <div id="statusFilters">
+                    <label>
+                        <input type="checkbox" id="low-priority-filter" checked>
+                        <span class="status-color-dot" style="background-color: #D3D3D3;"></span>
+                        Low Priority
+                    </label>
                     <label>
                         <input type="checkbox" id="not-contacted-filter" checked>
-                        <span class="status-color-dot" style="background-color: #808080;"></span>
+                        <span class="status-color-dot" style="background-color: #2D3436;"></span>
                         Not Contacted
                     </label>
                     <label>
@@ -248,7 +296,8 @@
 
         // Define colors
         const statusColors = {
-            'not contacted': '#808080',      // Gray
+            'low priority': '#D3D3D3',       // Light gray
+            'not contacted': '#2D3436',      // Dark gray/black
             'initial contact': '#FFA500',    // Orange
             'in discussion': '#4169E1',      // Royal Blue
             'partnership agreed': '#32CD32',  // Lime Green
@@ -296,7 +345,7 @@
                 const color = statusColors[dominantStatus] || '#666';
 
                 return new L.DivIcon({
-                    html: '<div style="background-color: ' + color + '"><span>' + childCount + '</span></div>',
+                    html: '<div><span>' + childCount + '</span></div>',
                     className: 'marker-cluster' + c,
                     iconSize: new L.Point(40, 40)
                 });
@@ -403,7 +452,7 @@
             document.querySelectorAll('#statusFilters input[type="checkbox"]').forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
                     if (this.id === 'athletic_centers') {
-                        toggleChildren('athletic_centers', '#statusFilters input.status-filter');
+                        toggleChildren('athletic_centers', '#statusFilters input[type="checkbox"]');
                     } else {
                         updateParentCheckbox('athletic_centers', '#statusFilters input[type="checkbox"]');
                     }
@@ -413,36 +462,51 @@
         });
 
         function updateFilters() {
-            targetMarkers.clearLayers();
+            const filters = {
+                lowPriority: document.getElementById('low-priority-filter').checked,
+                notContacted: document.getElementById('not-contacted-filter').checked,
+                initialContact: document.getElementById('initial-contact-filter').checked,
+                inDiscussion: document.getElementById('in-discussion-filter').checked,
+                partnershipAgreed: document.getElementById('partnership-agreed-filter').checked,
+                partnershipActive: document.getElementById('partnership-active-filter').checked,
+                notInterested: document.getElementById('not-interested-filter').checked
+            };
 
-            targets.forEach(target => {
-                if (target.latitude && target.longitude) {
-                    const status = target.status;
-                    const statusCheckbox = document.querySelector(`input.status-filter[data-status="${status}"]`);
-                    
-                    if (statusCheckbox && statusCheckbox.checked) {
-                        const size = getMarkerSize(map.getZoom());
-                        const faSize = Math.floor(size * 1.5);
+            targetMarkers.eachLayer(function(layer) {
+                if (layer.targetData) {
+                    const status = layer.targetData.status.toLowerCase();
+                    let isVisible = false;
 
-                        const marker = L.marker([target.latitude, target.longitude], {
-                            icon: L.divIcon({
-                                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
-                                className: 'custom-marker',
-                                iconSize: [size, size],
-                                iconAnchor: [size/2, size],
-                                popupAnchor: [0, -size]
-                            })
-                        });
+                    switch(status) {
+                        case 'low priority':
+                            isVisible = filters.lowPriority;
+                            break;
+                        case 'not contacted':
+                            isVisible = filters.notContacted;
+                            break;
+                        case 'initial contact':
+                            isVisible = filters.initialContact;
+                            break;
+                        case 'in discussion':
+                            isVisible = filters.inDiscussion;
+                            break;
+                        case 'partnership agreed':
+                            isVisible = filters.partnershipAgreed;
+                            break;
+                        case 'partnership active':
+                            isVisible = filters.partnershipActive;
+                            break;
+                        case 'not interested':
+                            isVisible = filters.notInterested;
+                            break;
+                        default:
+                            isVisible = true;
+                    }
 
-                        marker.bindPopup(`
-                            <strong>${target.organization}</strong><br>
-                            Status: ${status}<br>
-                            ${target.address || ''}<br>
-                            ${target.notes ? '<br>Notes: ' + target.notes : ''}
-                        `);
-
-                        marker.targetData = target;
-                        targetMarkers.addLayer(marker);
+                    if (isVisible) {
+                        targetMarkers.addLayer(layer);
+                    } else {
+                        targetMarkers.removeLayer(layer);
                     }
                 }
             });
@@ -524,8 +588,8 @@
                             const faSize = Math.floor(size * 1.5);
                             
                             const newIcon = L.divIcon({
-                                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
                                 className: 'custom-marker',
+                                html: `<i class="fas fa-map-marker-alt" style="font-size: ${faSize}px; color: ${getColorForStatus(status)}"></i>`,
                                 iconSize: [size, size],
                                 iconAnchor: [size/2, size],
                                 popupAnchor: [0, -size]

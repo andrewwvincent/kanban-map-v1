@@ -99,6 +99,10 @@
     <div class="dashboard-container">
         <div class="header">
             <h1>Project Status Dashboard</h1>
+            <div>
+                <button onclick="window.location.href='/index_db.html'" style="padding: 8px 16px; margin-right: 10px;">Kanban Board</button>
+                <button onclick="window.location.href='/dbmanager'" style="padding: 8px 16px;">Database Manager</button>
+            </div>
             <p>Last updated: <span id="lastUpdated"></span></p>
         </div>
         
@@ -130,7 +134,7 @@
         function initMap() {
             map = L.map('map').setView([39.8283, -98.5795], 4);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+                attribution: ' OpenStreetMap contributors'
             }).addTo(map);
         }
         
